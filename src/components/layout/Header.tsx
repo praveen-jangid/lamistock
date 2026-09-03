@@ -1,47 +1,65 @@
 import React from 'react';
 import {
+  Menu,
   Sparkles,
   Plus,
   Cloud,
-  TreePine
+  FileSpreadsheet,
+  MapPin,
+  ArrowRight
 } from 'lucide-react';
 import { isFirebaseReady } from '../../services/firebase';
 
 interface HeaderProps {
+  activeTabTitle: string;
   onOpenMatcher: () => void;
+  onOpenBulkMatcher: () => void;
   onOpenAddPanel: () => void;
   onOpenFirebaseSettings: () => void;
+  onToggleMobileSidebar: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  activeTabTitle,
   onOpenMatcher,
+  onOpenBulkMatcher,
   onOpenAddPanel,
-  onOpenFirebaseSettings
+  onOpenFirebaseSettings,
+  onToggleMobileSidebar
 }) => {
   const isCloudConnected = isFirebaseReady();
 
   return (
     <header className="app-header">
       <div className="header-container">
-        {/* Brand Logo & Factory Badge */}
-        <div className="brand-section">
-          <div className="brand-logo-icon">
-            <TreePine className="logo-svg" />
+        {/* Left: Mobile Menu & Current Section Breadcrumb */}
+        <div className="header-left-cluster">
+          <button
+            type="button"
+            className="btn-mobile-menu"
+            onClick={onToggleMobileSidebar}
+            title="Toggle Menu"
+          >
+            <Menu size={20} />
+          </button>
+
+          <div className="header-breadcrumbs">
+            <span className="crumb-root">LamiStock</span>
+            <span className="crumb-sep">/</span>
+            <h1 className="crumb-current">{activeTabTitle}</h1>
           </div>
-          <div className="brand-text-block">
-            <div className="brand-title-row">
-              <h1 className="brand-name">LamiStock</h1>
-              <span className="brand-pill">Lamination Panels</span>
-            </div>
-            <p className="brand-subtitle">
-              Extra Laminated Panels & Smart Cut-Order Matcher (Inches)
-            </p>
+
+          <div className="header-route-badge" title="Active factory route">
+            <MapPin size={12} className="text-emerald" />
+            <span>Unit 2 (Lamination)</span>
+            <ArrowRight size={11} />
+            <span>Unit 1 (Assembly)</span>
           </div>
         </div>
 
-        {/* Action Controls */}
+        {/* Right: Quick Action Controls */}
         <div className="header-actions">
-          {/* Real-time Cloud Sync Badge */}
+          {/* Cloud Sync Badge */}
           <button
             type="button"
             className={`sync-badge-btn ${isCloudConnected ? 'cloud-active' : 'cloud-pending'}`}
@@ -64,19 +82,32 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             className="btn-header-secondary"
             onClick={onOpenAddPanel}
+            title="Add a surplus lamination panel into stock"
           >
-            <Plus size={16} />
+            <Plus size={15} />
             <span>Add Panel</span>
           </button>
 
-          {/* Smart Order Matcher Trigger */}
+          {/* Single Urgent Panel Matcher */}
+          <button
+            type="button"
+            className="btn-header-secondary"
+            onClick={onOpenMatcher}
+            title="Match a single urgent panel size"
+          >
+            <Sparkles size={15} />
+            <span>Single Match</span>
+          </button>
+
+          {/* Bulk Order Matcher Trigger */}
           <button
             type="button"
             className="btn-header-primary"
-            onClick={onOpenMatcher}
+            onClick={onOpenBulkMatcher}
+            title="Upload Excel order or check BOM against stock"
           >
-            <Sparkles size={16} />
-            <span>Smart Matcher</span>
+            <FileSpreadsheet size={15} />
+            <span>Bulk Order (Excel)</span>
           </button>
         </div>
       </div>

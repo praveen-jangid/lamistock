@@ -158,10 +158,41 @@ export async function uploadLaminateImage(
 }
 
 // Firestore operations
+
+/**
+ * Sanitizes panel data before sending to Firestore, ensuring NO undefined values exist.
+ * Firestore will reject any document with undefined properties.
+ */
+export function sanitizePanelForFirestore(panel: LaminatedPanel): Record<string, any> {
+  const clean: Record<string, any> = {
+    id: String(panel.id),
+    length: Number(panel.length) || 0,
+    width: Number(panel.width) || 0,
+    thickness: Number(panel.thickness) || 0,
+    woodType: panel.woodType ? String(panel.woodType) : 'Mango Wood',
+    quantity: Number(panel.quantity) || 1,
+    frontImageUrl: panel.frontImageUrl || '',
+    backImageUrl: panel.backImageUrl || '',
+    notes: panel.notes ? String(panel.notes) : '',
+    createdAt: panel.createdAt || new Date().toISOString(),
+    updatedAt: panel.updatedAt || new Date().toISOString()
+  };
+
+  // Strip any remaining undefined keys just in case
+  Object.keys(clean).forEach((k) => {
+    if (clean[k] === undefined) {
+      delete clean[k];
+    }
+  });
+
+  return clean;
+}
+
 export async function syncPanelToFirestore(panel: LaminatedPanel): Promise<void> {
   if (!isFirebaseReady() || !dbInstance) return;
-  const panelRef = doc(dbInstance, FIRESTORE_PANELS_COLLECTION, panel.id);
-  await setDoc(panelRef, panel, { merge: true });
+  const cleanPanel = sanitizePanelForFirestore(panel);
+  const panelRef = doc(dbInstance, FIRESTORE_PANELS_COLLECTION, cleanPanel.id);
+  await setDoc(panelRef, cleanPanel, { merge: true });
 }
 
 export async function deletePanelFromFirestore(panelId: string): Promise<void> {
@@ -177,7 +208,20 @@ export async function fetchAllPanelsFromFirestore(): Promise<LaminatedPanel[]> {
   querySnapshot.forEach((docSnap) => {
     // Exclude any internal test documents
     if (docSnap.id !== '__connection_test__') {
-      panels.push(docSnap.data() as LaminatedPanel);
+      const data = docSnap.data();
+      panels.push({
+        id: docSnap.id,
+        length: Number(data.length) || 0,
+        width: Number(data.width) || 0,
+        thickness: Number(data.thickness) || 0,
+        woodType: data.woodType || 'Mango Wood',
+        quantity: Number(data.quantity) || 1,
+        frontImageUrl: data.frontImageUrl || '',
+        backImageUrl: data.backImageUrl || '',
+        notes: data.notes || '',
+        createdAt: data.createdAt || new Date().toISOString(),
+        updatedAt: data.updatedAt || new Date().toISOString()
+      });
     }
   });
   return panels;
@@ -187,14 +231,33 @@ export function subscribeToFirestorePanels(onUpdate: (panels: LaminatedPanel[]) 
   if (!isFirebaseReady() || !dbInstance) {
     return () => {};
   }
-  const unsubscribe = onSnapshot(collection(dbInstance, FIRESTORE_PANELS_COLLECTION), (snapshot) => {
-    const panels: LaminatedPanel[] = [];
-    snapshot.forEach((docSnap) => {
-      if (docSnap.id !== '__connection_test__') {
-        panels.push(docSnap.data() as LaminatedPanel);
-      }
-    });
-    onUpdate(panels);
-  });
+  const unsubscribe = onSnapshot(
+    collection(dbInstance, FIRESTORE_PANELS_COLLECTION),
+    (snapshot) => {
+      const panels: LaminatedPanel[] = [];
+      snapshot.forEach((docSnap) => {
+        if (docSnap.id !== '__connection_test__') {
+          const data = docSnap.data();
+          panels.push({
+            id: docSnap.id,
+            length: Number(data.length) || 0,
+            width: Number(data.width) || 0,
+            thickness: Number(data.thickness) || 0,
+            woodType: data.woodType || 'Mango Wood',
+            quantity: Number(data.quantity) || 1,
+            frontImageUrl: data.frontImageUrl || '',
+            backImageUrl: data.backImageUrl || '',
+            notes: data.notes || '',
+            createdAt: data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString()
+          });
+        }
+      });
+      onUpdate(panels);
+    },
+    (error) => {
+      console.error('Firestore onSnapshot subscription error:', error);
+    }
+  );
   return unsubscribe;
 }

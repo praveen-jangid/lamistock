@@ -85,11 +85,11 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
         length: Number(length),
         width: Number(width),
         thickness: Number(thickness),
-        woodType: woodType.trim() || 'Laminated Wood',
+        woodType: woodType.trim() || 'Mango Wood',
         quantity: Math.max(1, Number(quantity)),
-        frontImageUrl: frontImagePreview,
-        backImageUrl: backImagePreview,
-        notes: notes.trim(),
+        frontImageUrl: frontImagePreview || '',
+        backImageUrl: backImagePreview || '',
+        notes: notes ? notes.trim() : '',
         createdAt: panelToEdit?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -100,9 +100,9 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
         backImageChanged ? backImagePreview : undefined
       );
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving panel:', err);
-      alert('Could not save panel stock. Please check fields.');
+      alert(`Could not save panel: ${err?.message || 'Please check your connection and fields.'}`);
     } finally {
       setIsSaving(false);
     }

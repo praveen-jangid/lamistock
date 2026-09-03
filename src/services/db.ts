@@ -53,9 +53,22 @@ export async function initializeDatabase(): Promise<LaminatedPanel[]> {
   if (isFirebaseReady()) {
     try {
       const remotePanels = await fetchAllPanelsFromFirestore();
+      const localPanels = await localDb.panels.toArray();
+
       if (remotePanels.length > 0) {
         await localDb.panels.bulkPut(remotePanels);
         return remotePanels;
+      } else if (localPanels.length > 0) {
+        // Auto-migrate any local panels to Firestore if Firestore is currently empty
+        console.log(`Auto-migrating ${localPanels.length} local panel(s) up to Firestore...`);
+        for (const p of localPanels) {
+          try {
+            await syncPanelToFirestore(p);
+          } catch (err) {
+            console.warn('Failed auto-syncing local panel to Firestore:', err);
+          }
+        }
+        return localPanels;
       }
     } catch (e) {
       console.warn('Could not fetch panels from Firestore:', e);
@@ -75,27 +88,43 @@ export async function savePanel(
   frontImageBase64?: string,
   backImageBase64?: string
 ): Promise<LaminatedPanel> {
-  const updatedPanel = { ...panel, updatedAt: new Date().toISOString() };
+  const updatedPanel: LaminatedPanel = {
+    ...panel,
+    frontImageUrl: panel.frontImageUrl || '',
+    backImageUrl: panel.backImageUrl || '',
+    notes: panel.notes || '',
+    updatedAt: new Date().toISOString()
+  };
 
   if (frontImageBase64 && frontImageBase64.startsWith('data:')) {
-    const uploadedUrl = await uploadLaminateImage(frontImageBase64, panel.id, 'front');
-    updatedPanel.frontImageUrl = uploadedUrl;
+    try {
+      const uploadedUrl = await uploadLaminateImage(frontImageBase64, panel.id, 'front');
+      updatedPanel.frontImageUrl = uploadedUrl;
+    } catch (err) {
+      console.warn('Firebase front image upload failed:', err);
+    }
   }
 
   if (backImageBase64 && backImageBase64.startsWith('data:')) {
-    const uploadedUrl = await uploadLaminateImage(backImageBase64, panel.id, 'back');
-    updatedPanel.backImageUrl = uploadedUrl;
+    try {
+      const uploadedUrl = await uploadLaminateImage(backImageBase64, panel.id, 'back');
+      updatedPanel.backImageUrl = uploadedUrl;
+    } catch (err) {
+      console.warn('Firebase back image upload failed:', err);
+    }
   }
 
-  // 1. Save to local Dexie IndexedDB
+  // 1. Save to local Dexie IndexedDB first
   await localDb.panels.put(updatedPanel);
 
-  // 2. Sync to Firebase if connected
+  // 2. Sync to Firebase Firestore if connected
   if (isFirebaseReady()) {
     try {
       await syncPanelToFirestore(updatedPanel);
-    } catch (e) {
-      console.warn('Failed syncing panel to Firestore, saved locally:', e);
+      console.log('Successfully saved and synced panel to Firestore:', updatedPanel.id);
+    } catch (e: any) {
+      console.error('Failed syncing panel to Firestore:', e);
+      throw new Error(`Firestore Sync Error: ${e?.message || 'Could not save to Firestore'}`);
     }
   }
 
@@ -117,10 +146,20 @@ export async function bulkImportPanels(panels: LaminatedPanel[], replace: boolea
   if (replace) {
     await localDb.panels.clear();
   }
-  await localDb.panels.bulkPut(panels);
+  const cleanPanels = panels.map((p) => ({
+    ...p,
+    frontImageUrl: p.frontImageUrl || '',
+    backImageUrl: p.backImageUrl || '',
+    notes: p.notes || ''
+  }));
+  await localDb.panels.bulkPut(cleanPanels);
   if (isFirebaseReady()) {
-    for (const p of panels) {
-      await syncPanelToFirestore(p);
+    for (const p of cleanPanels) {
+      try {
+        await syncPanelToFirestore(p);
+      } catch (err) {
+        console.warn('Bulk sync to Firestore item failed:', err);
+      }
     }
   }
 }
@@ -129,6 +168,22 @@ export async function bulkImportPanels(panels: LaminatedPanel[], replace: boolea
 export function setupRealtimeSync(onPanelsUpdated: (panels: LaminatedPanel[]) => void): () => void {
   if (isFirebaseReady()) {
     return subscribeToFirestorePanels(async (remotePanels) => {
+      const localPanels = await localDb.panels.toArray();
+
+      // If remote is empty, but local has panels, don't wipe them! Push them up to Firestore.
+      if (remotePanels.length === 0 && localPanels.length > 0) {
+        console.log(`Preserving and uploading ${localPanels.length} local panels to empty Firestore...`);
+        for (const p of localPanels) {
+          try {
+            await syncPanelToFirestore(p);
+          } catch (err) {
+            console.warn('Sync to Firestore failed:', err);
+          }
+        }
+        onPanelsUpdated(localPanels);
+        return;
+      }
+
       // Keep local Dexie cache synchronized with Firestore
       await localDb.panels.clear();
       if (remotePanels.length > 0) {

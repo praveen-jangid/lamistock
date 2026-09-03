@@ -53,3 +53,41 @@ export interface MatchResult {
   cutLayout: CutLayout;
   matchReasons: string[];
 }
+
+export interface BulkOrderItem {
+  id: string;
+  partName: string;
+  length: number; // in inches
+  width: number; // in inches
+  thickness: number; // in inches
+  quantityNeeded: number;
+  woodType?: string;
+  remarks?: string;
+  rawSizeString?: string;
+}
+
+export interface BulkCandidateCut {
+  panel: LaminatedPanel;
+  yieldPerPanel: number;
+  wastePercentage: number;
+  cutLayout: CutLayout;
+  isExactMatch: boolean;
+  panelsNeededForOrder: number;
+  availableInStock: number;
+  remainingStockAfter: number;
+}
+
+export interface BulkMatchItemResult {
+  orderItem: BulkOrderItem;
+  candidates: BulkCandidateCut[]; // All candidate stock panels sorted by offcut % ascending
+  hasMatches: boolean; // True if at least 1 candidate stock panel exists
+}
+
+export interface BulkOrderMatchSummary {
+  orderTitle: string;
+  totalOrderItemsCount: number;
+  itemsWithStockCount: number;
+  itemsWithoutStockCount: number;
+  totalPiecesNeeded: number;
+  results: BulkMatchItemResult[];
+}

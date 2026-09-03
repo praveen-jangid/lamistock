@@ -25,10 +25,10 @@ export const SpecSheetModal: React.FC<SpecSheetModalProps> = ({
   matchResult,
   onClose
 }) => {
-  if (!isOpen || !panel) return null;
-
   const [copied, setCopied] = useState(false);
   const [managerPhone, setManagerPhone] = useState('');
+
+  if (!isOpen || !panel) return null;
 
   const frontImg = panel.frontImageUrl || DEFAULT_MANGO_FRONT_IMAGE;
   const backImg = panel.backImageUrl || DEFAULT_MANGO_BACK_IMAGE;
@@ -83,91 +83,111 @@ export const SpecSheetModal: React.FC<SpecSheetModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-container modal-lg spec-sheet-modal-container" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-3xl my-6 overflow-hidden flex flex-col max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
-        <div className="modal-header no-print">
-          <div className="modal-title-group">
-            <h2 className="modal-title">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 print:hidden">
+          <div>
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 m-0">
               📋 Production Spec Sheet
             </h2>
-            <p className="modal-subtitle">
+            <p className="text-xs text-slate-500 mt-0.5">
               Verify Front & Back photos and dimensions in inches with your Production Manager.
             </p>
           </div>
-          <button type="button" className="btn-close-modal" onClick={onClose}>
-            <X size={20} />
+          <button
+            type="button"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+            onClick={onClose}
+          >
+            <X size={18} />
           </button>
         </div>
 
         {/* Printable Spec Card Area */}
-        <div className="spec-card-printable" id="printable-spec-sheet">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {/* Header Banner */}
-          <div className="spec-print-header">
-            <div className="spec-brand-block">
-              <span className="spec-company-label">FURNITURE MANUFACTURING • STOCK SPECIFICATION</span>
-              <h1 className="spec-panel-code">{formatDimensions(panel.length, panel.width, panel.thickness)}</h1>
+          <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200 flex-wrap">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                FURNITURE MANUFACTURING • STOCK SPECIFICATION
+              </span>
+              <h1 className="text-xl sm:text-2xl font-black font-mono text-slate-900 mt-1 m-0">
+                {formatDimensions(panel.length, panel.width, panel.thickness)}
+              </h1>
             </div>
-            <div className="spec-location-block">
-              <div className="wood-type-tag">
-                <TreePine size={16} />
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+                <TreePine size={14} className="text-emerald-600" />
                 <span>{panel.woodType || 'Laminated Wood'}</span>
               </div>
-              <span className="spec-qty-pill">{panel.quantity} Panel(s) Available</span>
+              <span className="px-3 py-1 bg-slate-900 text-white text-xs font-mono font-bold rounded-full">
+                {panel.quantity} Panel(s) Available
+              </span>
             </div>
           </div>
 
           {/* Dual Photos: Front & Back side by side */}
-          <div className="spec-photos-comparison">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Front Photo */}
-            <div className="spec-photo-card">
-              <div className="spec-photo-label-bar">
-                <span className="face-tag front-tag">FRONT FACE (A-SIDE)</span>
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+              <div className="px-3 py-1.5 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-700">
+                FRONT FACE (A-SIDE)
               </div>
-              <div className="spec-image-frame">
-                <img src={frontImg} alt="Front Face" className="spec-full-img" />
+              <div className="h-44 sm:h-52 bg-slate-200 flex items-center justify-center overflow-hidden">
+                <img src={frontImg} alt="Front Face" className="w-full h-full object-cover" />
               </div>
             </div>
 
             {/* Back Photo */}
-            <div className="spec-photo-card">
-              <div className="spec-photo-label-bar">
-                <span className="face-tag back-tag">BACK FACE (B-SIDE)</span>
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+              <div className="px-3 py-1.5 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-700">
+                BACK FACE (B-SIDE)
               </div>
-              <div className="spec-image-frame">
-                <img src={backImg} alt="Back Face" className="spec-full-img" />
+              <div className="h-44 sm:h-52 bg-slate-200 flex items-center justify-center overflow-hidden">
+                <img src={backImg} alt="Back Face" className="w-full h-full object-cover" />
               </div>
             </div>
           </div>
 
-          {/* Detailed Technical Table */}
-          <div className="spec-technical-grid">
-            <div className="tech-item">
-              <span className="tech-label">Dimensions (L × W × T):</span>
-              <strong className="tech-val highlight-lg">
+          {/* Detailed Technical Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Dimensions:</span>
+              <strong className="text-sm font-mono font-bold text-slate-900 block mt-0.5">
                 {formatDimensions(panel.length, panel.width, panel.thickness)}
               </strong>
             </div>
 
-            <div className="tech-item">
-              <span className="tech-label">Wood Material:</span>
-              <strong className="tech-val">{panel.woodType || 'Laminated Wood'}</strong>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Wood Material:</span>
+              <strong className="text-sm font-bold text-slate-900 block mt-0.5">
+                {panel.woodType || 'Laminated Wood'}
+              </strong>
             </div>
 
-            <div className="tech-item">
-              <span className="tech-label">Stock Quantity:</span>
-              <strong className="tech-val">{panel.quantity} Panel(s)</strong>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Stock Quantity:</span>
+              <strong className="text-sm font-mono font-bold text-slate-900 block mt-0.5">
+                {panel.quantity} Panel(s)
+              </strong>
             </div>
           </div>
 
           {/* If opened as part of a match result */}
           {matchResult && (
-            <div className="spec-match-summary-banner">
-              <div className="match-banner-header">
-                <Sparkles size={16} />
-                <strong>Order Match Proposed:</strong>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                <Sparkles size={15} className="text-emerald-600" />
+                <span>Order Match Proposed:</span>
               </div>
-              <div className="match-banner-grid">
+              <div className="grid grid-cols-3 gap-2 text-xs text-emerald-950 font-medium">
                 <div>Yield: <strong>{matchResult.yieldPerSheet} pcs / panel</strong></div>
                 <div>Offcut Waste: <strong>{matchResult.wastePercentage}%</strong></div>
                 <div>Panels Required: <strong>{matchResult.totalPanelsRequired}</strong></div>
@@ -176,52 +196,52 @@ export const SpecSheetModal: React.FC<SpecSheetModalProps> = ({
           )}
 
           {panel.notes && (
-            <div className="spec-notes-box">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700">
               <strong>Factory Remarks:</strong> {panel.notes}
             </div>
           )}
         </div>
 
         {/* Modal Action Bar (WhatsApp, Print, Copy) */}
-        <div className="spec-actions-toolbar no-print">
-          <div className="whatsapp-input-group">
-            <span className="wa-label">Manager WhatsApp #:</span>
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-bold text-slate-600 whitespace-nowrap">WhatsApp #:</span>
             <input
               type="tel"
-              className="form-input wa-phone-input"
-              placeholder="e.g. +91 9876543210 (Optional)"
+              className="flex-1 sm:w-56 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              placeholder="+91 9876543210 (Optional)"
               value={managerPhone}
               onChange={(e) => setManagerPhone(e.target.value)}
             />
           </div>
 
-          <div className="action-buttons-cluster">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               type="button"
-              className="btn-share-whatsapp"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
               onClick={handleShareWhatsApp}
               title="Open WhatsApp with pre-filled panel specifications"
             >
-              <MessageCircle size={18} />
-              <span>Share on WhatsApp</span>
+              <MessageCircle size={15} />
+              <span>Share WhatsApp</span>
             </button>
 
             <button
               type="button"
-              className="btn-action-outline"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs"
               onClick={handleCopyClipboard}
             >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-              <span>{copied ? 'Copied Specs!' : 'Copy Summary'}</span>
+              {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              <span>{copied ? 'Copied!' : 'Copy'}</span>
             </button>
 
             <button
               type="button"
-              className="btn-action-outline"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs"
               onClick={handlePrint}
             >
-              <Printer size={16} />
-              <span>Print Spec Card</span>
+              <Printer size={14} />
+              <span>Print</span>
             </button>
           </div>
         </div>

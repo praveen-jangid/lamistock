@@ -76,7 +76,6 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
   // Selected item IDs to dispatch in this challan
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => {
     const set = new Set<string>();
-    // Default: pre-select all items that have remaining quantity > 0
     if (activeOrder) {
       const items = buildOrderChallanItems(activeOrder);
       items.forEach((it) => {
@@ -219,67 +218,81 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
     setSelectedHistoryChallan(newChallan);
   };
 
-  // Trigger Print
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="challan-view-container">
+    <div className="space-y-6">
       {/* View Header */}
-      <div className="challan-page-header">
-        <div className="challan-header-left">
-          <div className="challan-header-icon-box">
-            <Truck size={24} />
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 flex-shrink-0">
+            <Truck size={24} className="text-amber-500" />
           </div>
           <div>
-            <div className="challan-title-row">
-              <h2 className="challan-view-title">Outward Delivery Challans</h2>
-              <span className="route-badge">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 m-0">
+                Outward Delivery Challans
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900">
                 Unit 2 (Lamination) → Unit 1 (Assembly)
               </span>
             </div>
-            <p className="challan-view-subtitle">
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               Dispatch laminated panels & frame components with checklists, pallet photos, and printable delivery vouchers.
             </p>
           </div>
         </div>
 
-        <div className="challan-header-actions">
+        {/* Sub-tab Navigation */}
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 flex-wrap">
           <button
             type="button"
-            className={`btn-subtab ${activeSubTab === 'create' ? 'active' : ''}`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              activeSubTab === 'create'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
             onClick={() => {
               setActiveSubTab('create');
               navigate('/challans/new');
             }}
           >
-            <Plus size={15} />
-            <span>Create New Challan</span>
+            <Plus size={14} />
+            <span>Create Challan</span>
           </button>
 
           <button
             type="button"
-            className={`btn-subtab ${activeSubTab === 'history' ? 'active' : ''}`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              activeSubTab === 'history'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
             onClick={() => {
               setActiveSubTab('history');
               setSelectedHistoryChallan(null);
               navigate('/challans');
             }}
           >
-            <Clock size={15} />
-            <span>Challan History ({challansList.length})</span>
+            <Clock size={14} />
+            <span>History ({challansList.length})</span>
           </button>
 
           <button
             type="button"
-            className={`btn-subtab ${activeSubTab === 'tracker' ? 'active' : ''}`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              activeSubTab === 'tracker'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
             onClick={() => {
               setActiveSubTab('tracker');
               navigate('/tracker');
             }}
           >
-            <Layers size={15} />
+            <Layers size={14} />
             <span>Unit 1 Tracker</span>
           </button>
         </div>
@@ -289,50 +302,59 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
           TAB 1: CREATE OUTWARD CHALLAN (WIZARD)
           ========================================================================= */}
       {activeSubTab === 'create' && (
-        <div className="challan-create-card">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-6">
           {/* Wizard Step Indicator */}
-          <div className="challan-wizard-steps">
-            <div
-              className={`wizard-step ${wizardStep >= 1 ? 'step-active' : ''}`}
-              onClick={() => setWizardStep(1)}
-            >
-              <span className="step-circle">1</span>
-              <span className="step-name">Select Components</span>
-              <span className="step-desc">Panels & Frames</span>
-            </div>
-
-            <div
-              className={`wizard-step ${wizardStep >= 2 ? 'step-active' : ''}`}
-              onClick={() => {
-                if (dispatchedItems.length > 0) setWizardStep(2);
-              }}
-            >
-              <span className="step-circle">2</span>
-              <span className="step-name">Pallet Photos & Vehicle</span>
-              <span className="step-desc">Transport Details</span>
-            </div>
-
-            <div
-              className={`wizard-step ${wizardStep === 3 ? 'step-active' : ''}`}
-              onClick={() => {
-                if (dispatchedItems.length > 0) setWizardStep(3);
-              }}
-            >
-              <span className="step-circle">3</span>
-              <span className="step-name">Review & Print Format</span>
-              <span className="step-desc">Paper Challan Voucher</span>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-b border-slate-200 pb-5">
+            {[
+              { num: 1, title: 'Select Components', desc: 'Panels & Frames' },
+              { num: 2, title: 'Pallet Photos & Vehicle', desc: 'Transport Details' },
+              { num: 3, title: 'Review & Print Format', desc: 'Paper Challan Voucher' }
+            ].map((st) => (
+              <div
+                key={st.num}
+                className={`p-3 rounded-xl border flex items-center gap-3 transition cursor-pointer ${
+                  wizardStep === st.num
+                    ? 'border-slate-900 bg-slate-50'
+                    : wizardStep > st.num
+                    ? 'border-emerald-500 bg-emerald-50/40'
+                    : 'border-slate-200 opacity-60'
+                }`}
+                onClick={() => {
+                  if (st.num === 1 || dispatchedItems.length > 0) {
+                    setWizardStep(st.num as 1 | 2 | 3);
+                  }
+                }}
+              >
+                <span
+                  className={`w-7 h-7 rounded-full flex items-center justify-center font-mono font-bold text-xs ${
+                    wizardStep === st.num
+                      ? 'bg-slate-900 text-white'
+                      : wizardStep > st.num
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {wizardStep > st.num ? '✓' : st.num}
+                </span>
+                <div>
+                  <strong className="block text-xs font-bold text-slate-900">{st.title}</strong>
+                  <span className="text-[11px] text-slate-400">{st.desc}</span>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* ================= STEP 1: COMPONENT CHECKLIST ================= */}
+          {/* STEP 1: COMPONENT CHECKLIST */}
           {wizardStep === 1 && (
-            <div className="wizard-step-body">
+            <div className="space-y-5">
               {/* Top Order Selector */}
-              <div className="order-selector-ribbon">
-                <div className="order-selector-group">
-                  <label className="field-label font-bold">Select Production Order to Dispatch:</label>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Select Production Order to Dispatch:
+                  </label>
                   <select
-                    className="order-dropdown-select"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
                     value={selectedOrderId}
                     onChange={(e) => handleSelectOrder(e.target.value)}
                   >
@@ -344,52 +366,50 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                   </select>
                 </div>
 
-                <div className="order-actions-cluster">
-                  {onOpenBulkMatcher && (
-                    <button
-                      type="button"
-                      className="btn-link-action"
-                      onClick={onOpenBulkMatcher}
-                    >
-                      <Sparkles size={14} />
-                      <span>Check Extra Stock in Cloud</span>
-                    </button>
-                  )}
-                </div>
+                {onOpenBulkMatcher && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 transition cursor-pointer self-end sm:self-center"
+                    onClick={onOpenBulkMatcher}
+                  >
+                    <Sparkles size={14} />
+                    <span>Check Extra Stock in Cloud</span>
+                  </button>
+                )}
               </div>
 
               {/* Selection Helper Buttons */}
-              <div className="checklist-toolbar">
-                <div className="checklist-stats">
-                  <strong>Selected to Dispatch:</strong>
-                  <span className="count-pill emerald">
+              <div className="flex items-center justify-between gap-3 flex-wrap p-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <strong className="text-slate-700">Selected:</strong>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
                     {laminationDispatched.length} Lamination Sizes (
                     {laminationDispatched.reduce((s, it) => s + it.dispatchingNowQty, 0)} panels)
                   </span>
-                  <span className="count-pill amber">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">
                     {framesDispatched.length} Frame Components (
                     {framesDispatched.reduce((s, it) => s + it.dispatchingNowQty, 0)} pcs)
                   </span>
                 </div>
 
-                <div className="checklist-batch-buttons">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className="btn-batch-select"
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg font-semibold transition cursor-pointer"
                     onClick={handleSelectAllLamination}
                   >
                     Select All Lamination
                   </button>
                   <button
                     type="button"
-                    className="btn-batch-select"
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg font-semibold transition cursor-pointer"
                     onClick={handleSelectAllFrames}
                   >
                     Select All Frames
                   </button>
                   <button
                     type="button"
-                    className="btn-batch-select text-danger"
+                    className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg font-semibold transition cursor-pointer"
                     onClick={() => setSelectedItemIds(new Set())}
                   >
                     Deselect All
@@ -398,34 +418,34 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
               </div>
 
               {/* SECTION A: LAMINATION PANELS CHECKLIST */}
-              <div className="category-section-box">
-                <div className="category-header-row">
-                  <div className="category-title-group">
-                    <Layers size={18} className="text-emerald" />
-                    <h3 className="category-title">Category 1: Lamination Panels</h3>
-                    <span className="category-count">
+              <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <Layers size={16} className="text-emerald-600" />
+                    <span>Category 1: Lamination Panels</span>
+                    <span className="text-slate-400 font-normal">
                       ({checklistItems.filter((it) => it.category === 'LAMINATION').length} sizes)
                     </span>
                   </div>
-                  <span className="category-hint">
-                    Press & laminated in Unit 2 • Select which panels are loaded on the pallet
+                  <span className="text-[11px] text-slate-400">
+                    Pressed in Unit 2 • Select loaded panels
                   </span>
                 </div>
 
-                <div className="table-scroll-wrap">
-                  <table className="challan-checklist-table">
-                    <thead>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-100/60 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
                       <tr>
-                        <th style={{ width: '45px' }}>Send</th>
-                        <th>Part Name</th>
-                        <th style={{ width: '180px' }}>Dimensions (L × W × T)</th>
-                        <th style={{ width: '100px' }}>Order Total</th>
-                        <th style={{ width: '110px' }}>Already Sent</th>
-                        <th style={{ width: '120px' }}>Dispatch Now</th>
-                        <th>Remarks / Finish</th>
+                        <th className="p-2.5 w-10 text-center">Send</th>
+                        <th className="p-2.5">Part Name</th>
+                        <th className="p-2.5 w-44">Dimensions (L × W × T)</th>
+                        <th className="p-2.5 w-24">Order Total</th>
+                        <th className="p-2.5 w-24">Already Sent</th>
+                        <th className="p-2.5 w-28">Dispatch Now</th>
+                        <th className="p-2.5">Remarks / Finish</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100">
                       {checklistItems
                         .filter((it) => it.category === 'LAMINATION')
                         .map((it) => {
@@ -435,33 +455,35 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                           return (
                             <tr
                               key={it.id}
-                              className={isChecked ? 'row-selected' : ''}
+                              className={`transition cursor-pointer ${
+                                isChecked ? 'bg-emerald-50/40' : 'hover:bg-slate-50/60'
+                              }`}
                               onClick={() => handleToggleItem(it.id)}
                             >
-                              <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                              <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
                                   onChange={() => handleToggleItem(it.id)}
-                                  className="challan-checkbox"
+                                  className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900 cursor-pointer"
                                 />
                               </td>
-                              <td className="font-bold">{it.partName}</td>
-                              <td className="font-mono">{it.dimensions}</td>
-                              <td className="font-mono">{it.totalOrderQty} pcs</td>
-                              <td className="font-mono text-muted">
+                              <td className="p-2.5 font-bold text-slate-900">{it.partName}</td>
+                              <td className="p-2.5 font-mono text-slate-700">{it.dimensions}</td>
+                              <td className="p-2.5 font-mono text-slate-600">{it.totalOrderQty} pcs</td>
+                              <td className="p-2.5 font-mono text-slate-400">
                                 {it.alreadyDispatchedQty > 0 ? (
-                                  <span className="tag-already-sent">{it.alreadyDispatchedQty} sent</span>
-                                ) : (
-                                  '0'
-                                )}
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">
+                                    {it.alreadyDispatchedQty} sent
+                                  </span>
+                                ) : '0'}
                               </td>
-                              <td onClick={(e) => e.stopPropagation()}>
+                              <td className="p-2.5" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="number"
                                   min={1}
                                   max={remaining || 999}
-                                  className="dispatch-qty-input font-mono font-bold"
+                                  className="w-20 px-2 py-1 bg-white border border-slate-200 rounded font-mono font-bold text-slate-900 focus:outline-none disabled:opacity-40"
                                   value={it.dispatchingNowQty}
                                   onChange={(e) =>
                                     handleQtyChange(it.id, parseInt(e.target.value, 10) || 1)
@@ -469,7 +491,7 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                                   disabled={!isChecked}
                                 />
                               </td>
-                              <td className="text-muted">{it.remarks || '—'}</td>
+                              <td className="p-2.5 text-slate-500">{it.remarks || '—'}</td>
                             </tr>
                           );
                         })}
@@ -479,34 +501,32 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
               </div>
 
               {/* SECTION B: FRAME COMPONENTS CHECKLIST */}
-              <div className="category-section-box mt-4">
-                <div className="category-header-row">
-                  <div className="category-title-group">
-                    <Truck size={18} className="text-amber" />
-                    <h3 className="category-title">Category 2: Frame & Structural Components</h3>
-                    <span className="category-count">
+              <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <Truck size={16} className="text-amber-500" />
+                    <span>Category 2: Frame & Structural Components</span>
+                    <span className="text-slate-400 font-normal">
                       ({checklistItems.filter((it) => it.category === 'FRAME').length} items)
                     </span>
                   </div>
-                  <span className="category-hint">
-                    Solid wood framing, legs, aprons, & stretchers
-                  </span>
+                  <span className="text-[11px] text-slate-400">Solid wood framing, legs, aprons</span>
                 </div>
 
-                <div className="table-scroll-wrap">
-                  <table className="challan-checklist-table">
-                    <thead>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-100/60 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
                       <tr>
-                        <th style={{ width: '45px' }}>Send</th>
-                        <th>Part Name</th>
-                        <th style={{ width: '180px' }}>Size (Inches)</th>
-                        <th style={{ width: '100px' }}>Order Total</th>
-                        <th style={{ width: '110px' }}>Already Sent</th>
-                        <th style={{ width: '120px' }}>Dispatch Now</th>
-                        <th>Remarks</th>
+                        <th className="p-2.5 w-10 text-center">Send</th>
+                        <th className="p-2.5">Part Name</th>
+                        <th className="p-2.5 w-44">Size (Inches)</th>
+                        <th className="p-2.5 w-24">Order Total</th>
+                        <th className="p-2.5 w-24">Already Sent</th>
+                        <th className="p-2.5 w-28">Dispatch Now</th>
+                        <th className="p-2.5">Remarks</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100">
                       {checklistItems
                         .filter((it) => it.category === 'FRAME')
                         .map((it) => {
@@ -516,33 +536,35 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                           return (
                             <tr
                               key={it.id}
-                              className={isChecked ? 'row-selected' : ''}
+                              className={`transition cursor-pointer ${
+                                isChecked ? 'bg-amber-50/40' : 'hover:bg-slate-50/60'
+                              }`}
                               onClick={() => handleToggleItem(it.id)}
                             >
-                              <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                              <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
                                   onChange={() => handleToggleItem(it.id)}
-                                  className="challan-checkbox"
+                                  className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900 cursor-pointer"
                                 />
                               </td>
-                              <td className="font-bold">{it.partName}</td>
-                              <td className="font-mono">{it.dimensions}</td>
-                              <td className="font-mono">{it.totalOrderQty} pcs</td>
-                              <td className="font-mono text-muted">
+                              <td className="p-2.5 font-bold text-slate-900">{it.partName}</td>
+                              <td className="p-2.5 font-mono text-slate-700">{it.dimensions}</td>
+                              <td className="p-2.5 font-mono text-slate-600">{it.totalOrderQty} pcs</td>
+                              <td className="p-2.5 font-mono text-slate-400">
                                 {it.alreadyDispatchedQty > 0 ? (
-                                  <span className="tag-already-sent">{it.alreadyDispatchedQty} sent</span>
-                                ) : (
-                                  '0'
-                                )}
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">
+                                    {it.alreadyDispatchedQty} sent
+                                  </span>
+                                ) : '0'}
                               </td>
-                              <td onClick={(e) => e.stopPropagation()}>
+                              <td className="p-2.5" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="number"
                                   min={1}
                                   max={remaining || 999}
-                                  className="dispatch-qty-input font-mono font-bold"
+                                  className="w-20 px-2 py-1 bg-white border border-slate-200 rounded font-mono font-bold text-slate-900 focus:outline-none disabled:opacity-40"
                                   value={it.dispatchingNowQty}
                                   onChange={(e) =>
                                     handleQtyChange(it.id, parseInt(e.target.value, 10) || 1)
@@ -550,7 +572,7 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                                   disabled={!isChecked}
                                 />
                               </td>
-                              <td className="text-muted">{it.remarks || '—'}</td>
+                              <td className="p-2.5 text-slate-500">{it.remarks || '—'}</td>
                             </tr>
                           );
                         })}
@@ -560,43 +582,43 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
               </div>
 
               {/* Bottom Nav */}
-              <div className="wizard-bottom-actions">
-                <div className="selected-summary-stat">
-                  <strong>Total Items to Dispatch:</strong>{' '}
-                  <span className="font-bold text-emerald">
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200 flex-wrap">
+                <div className="text-xs text-slate-600">
+                  Total Items to Dispatch:{' '}
+                  <strong className="text-emerald-700 font-mono text-sm">
                     {dispatchedItems.reduce((s, it) => s + it.dispatchingNowQty, 0)} pieces
-                  </span>{' '}
-                  across {dispatchedItems.length} component sizes
+                  </strong>{' '}
+                  across {dispatchedItems.length} sizes
                 </div>
 
                 <button
                   type="button"
-                  className="btn-primary-large"
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
                   disabled={dispatchedItems.length === 0}
                   onClick={() => setWizardStep(2)}
                 >
-                  <span>Proceed to Pallet Photos & Vehicle →</span>
+                  Proceed to Pallet Photos & Vehicle →
                 </button>
               </div>
             </div>
           )}
 
-          {/* ================= STEP 2: PALLET PHOTOS & VEHICLE INFO ================= */}
+          {/* STEP 2: PALLET PHOTOS & VEHICLE INFO */}
           {wizardStep === 2 && (
-            <div className="wizard-step-body">
-              <div className="step-2-grid">
-                {/* Left: Pallet Photos Upload */}
-                <div className="pallet-photos-card">
-                  <div className="card-heading-group">
-                    <Camera size={18} className="text-emerald" />
-                    <strong>Pallet & Shipment Photos (For Unit 1 Assembly Reference)</strong>
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Pallet Photos */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <Camera size={16} className="text-emerald-600" />
+                    <span>Pallet & Shipment Photos (For Unit 1 Reference)</span>
                   </div>
-                  <p className="helper-text">
-                    Take photos of the loaded pallet/tempo so the assembly supervisor in Unit 1 can immediately identify the pieces and know how they were packed.
+                  <p className="text-xs text-slate-500">
+                    Take photos of the loaded pallet/tempo so Unit 1 can verify piece placement upon arrival.
                   </p>
 
                   <div
-                    className="photo-dropzone-box"
+                    className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-white rounded-xl p-6 text-center cursor-pointer transition"
                     onClick={() => photoInputRef.current?.click()}
                   >
                     <input
@@ -604,28 +626,29 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                       type="file"
                       accept="image/*"
                       capture="environment"
-                      style={{ display: 'none' }}
+                      className="hidden"
                       onChange={handlePhotoUpload}
                     />
-                    <Camera size={32} className="text-muted" />
-                    <span className="dropzone-label font-bold">
-                      Take Photo with Phone / Click to Upload
+                    <Camera size={28} className="text-slate-400 mx-auto mb-2" />
+                    <span className="block text-xs font-bold text-slate-800">
+                      Snap Photo with Camera / Click to Upload
                     </span>
-                    <span className="dropzone-sub">Upload loaded pallet or stack images</span>
+                    <span className="block text-[10px] text-slate-400 mt-0.5">
+                      Upload loaded pallet or stack images
+                    </span>
                   </div>
 
                   {palletPhotos.length > 0 && (
-                    <div className="pallet-photos-strip">
+                    <div className="flex items-center gap-2 overflow-x-auto pt-2">
                       {palletPhotos.map((img, idx) => (
-                        <div key={idx} className="pallet-thumb-wrap">
-                          <img src={img} alt={`Pallet ${idx + 1}`} className="pallet-thumb-img" />
+                        <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 group">
+                          <img src={img} alt={`Pallet ${idx + 1}`} className="w-full h-full object-cover" />
                           <button
                             type="button"
-                            className="btn-delete-photo"
+                            className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded cursor-pointer"
                             onClick={() => handleRemovePhoto(idx)}
-                            title="Remove photo"
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={11} />
                           </button>
                         </div>
                       ))}
@@ -633,74 +656,71 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                   )}
                 </div>
 
-                {/* Right: Transport & Dispatch Form */}
-                <div className="transport-details-card">
-                  <div className="card-heading-group">
-                    <Truck size={18} className="text-emerald" />
-                    <strong>Transport & Route Information</strong>
+                {/* Transport & Route Info */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <Truck size={16} className="text-amber-500" />
+                    <span>Transport & Route Information</span>
                   </div>
 
-                  <div className="form-row-2col">
-                    <div className="form-group">
-                      <label className="form-label">Outward Challan #:</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Outward Challan #:</label>
                       <input
                         type="text"
-                        className="form-input font-mono font-bold"
+                        className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900"
                         value={challanNumber}
                         readOnly
                       />
                     </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Dispatch Date:</label>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Dispatch Date:</label>
                       <input
                         type="date"
-                        className="form-input"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900"
                         value={dispatchDate}
                         onChange={(e) => setDispatchDate(e.target.value)}
                       />
                     </div>
                   </div>
 
-                  <div className="form-row-2col">
-                    <div className="form-group">
-                      <label className="form-label">From Location:</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">From Location:</label>
                       <input
                         type="text"
-                        className="form-input font-bold"
-                        value="Unit 2 (Lamination & Wood Processing)"
+                        className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 truncate"
+                        value="Unit 2 (Lamination)"
                         readOnly
                       />
                     </div>
-
-                    <div className="form-group">
-                      <label className="form-label">To Location:</label>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">To Location:</label>
                       <input
                         type="text"
-                        className="form-input font-bold"
-                        value="Unit 1 (Assembly & Finishing Workshop)"
+                        className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 truncate"
+                        value="Unit 1 (Assembly)"
                         readOnly
                       />
                     </div>
                   </div>
 
-                  <div className="form-row-2col">
-                    <div className="form-group">
-                      <label className="form-label">Vehicle / Tempo #:</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Vehicle / Tempo #:</label>
                       <input
                         type="text"
-                        className="form-input font-mono"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
                         value={vehicleNumber}
                         onChange={(e) => setVehicleNumber(e.target.value)}
                         placeholder="e.g. RJ-14 Factory Pickup"
                       />
                     </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Driver / Handover Name:</label>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Driver Name:</label>
                       <input
                         type="text"
-                        className="form-input"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
                         value={driverName}
                         onChange={(e) => setDriverName(e.target.value)}
                         placeholder="e.g. Ramesh"
@@ -708,224 +728,210 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Pallet & Dispatch Notes for Unit 1:</label>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Dispatch Notes for Unit 1:</label>
                     <textarea
-                      className="form-textarea"
-                      rows={3}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      rows={2}
                       value={dispatchNotes}
                       onChange={(e) => setDispatchNotes(e.target.value)}
-                      placeholder="Notes for the assembly unit..."
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Wizard Nav */}
-              <div className="wizard-bottom-actions space-between">
+              {/* Bottom Nav */}
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
                   onClick={() => setWizardStep(1)}
                 >
-                  <span>← Back to Components</span>
+                  ← Back to Components
                 </button>
 
                 <button
                   type="button"
-                  className="btn-primary-large"
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
                   onClick={() => setWizardStep(3)}
                 >
-                  <span>Proceed to Print Preview & Save →</span>
+                  Proceed to Print Preview & Save →
                 </button>
               </div>
             </div>
           )}
 
-          {/* ================= STEP 3: REVIEW & PRINT PREVIEW ================= */}
+          {/* STEP 3: REVIEW & PRINT PREVIEW */}
           {wizardStep === 3 && (
-            <div className="wizard-step-body">
-              {/* Action Toolbar for Print */}
-              <div className="print-preview-actions-bar">
-                <div className="preview-meta">
-                  <CheckCircle2 size={18} className="text-emerald" />
-                  <strong>Print Format Ready:</strong> You can print this outward challan now or save it to reprint anytime.
+            <div className="space-y-5">
+              {/* Action Toolbar */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between gap-3 flex-wrap print:hidden">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                  <CheckCircle2 size={16} className="text-emerald-600" />
+                  <span>Print Format Ready: You can print now or save to reprint anytime.</span>
                 </div>
 
-                <div className="preview-buttons">
-                  <button type="button" className="btn-secondary" onClick={handlePrint}>
-                    <Printer size={16} />
-                    <span>Print Challan Voucher (Paper / PDF)</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
+                    onClick={handlePrint}
+                  >
+                    <Printer size={14} />
+                    <span>Print Voucher</span>
                   </button>
 
                   <button
                     type="button"
-                    className="btn-primary"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
                     onClick={handleSaveChallan}
                   >
-                    <PackageCheck size={16} />
-                    <span>Save & Mark Dispatched to Unit 1</span>
+                    <PackageCheck size={14} />
+                    <span>Save & Mark Dispatched</span>
                   </button>
                 </div>
               </div>
 
-              {/* ================= PRINTABLE CHALLAN VOUCHER ================= */}
-              <div className="printable-challan-voucher" id="printable-voucher-content">
-                {/* Voucher Header */}
-                <div className="voucher-header">
-                  <div className="voucher-company">
-                    <h1 className="company-name">FACTORY OUTWARD DELIVERY CHALLAN</h1>
-                    <div className="company-sub">Internal Wood Components Transfer Voucher</div>
+              {/* Printable Challan Voucher */}
+              <div className="border border-slate-300 rounded-2xl p-6 bg-white space-y-5 shadow-xs" id="printable-voucher-content">
+                {/* Header */}
+                <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
+                  <div>
+                    <h1 className="text-xl font-black tracking-tight text-slate-900 m-0">
+                      FACTORY OUTWARD DELIVERY CHALLAN
+                    </h1>
+                    <div className="text-xs text-slate-500 mt-0.5">Internal Wood Components Transfer Voucher</div>
                   </div>
-
-                  <div className="voucher-meta-box">
-                    <div className="voucher-no font-mono font-bold">Challan No: {challanNumber}</div>
-                    <div className="voucher-date">Date: {dispatchDate}</div>
-                    <div className="voucher-time">
-                      Time: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className="text-right text-xs">
+                    <div className="font-mono font-black text-sm text-slate-900">Challan No: {challanNumber}</div>
+                    <div className="text-slate-600">Date: {dispatchDate}</div>
+                    <div className="text-slate-400 font-mono text-[11px]">
+                      {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                 </div>
 
-                {/* Route Information Box */}
-                <div className="voucher-route-grid">
-                  <div className="route-cell">
-                    <span className="route-header-label">DISPATCHED FROM (SOURCE):</span>
-                    <strong className="route-val">Unit 2 (Lamination & Wood Processing)</strong>
-                    <div className="route-subtext">Cutting, Pressing & Framing Section</div>
+                {/* Route Box */}
+                <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">DISPATCHED FROM:</span>
+                    <strong className="text-slate-900">Unit 2 (Lamination & Wood Processing)</strong>
                   </div>
-
-                  <div className="route-cell">
-                    <span className="route-header-label">DELIVER TO (DESTINATION):</span>
-                    <strong className="route-val">Unit 1 (Furniture Assembly Workshop)</strong>
-                    <div className="route-subtext">Assembly, Sanding & Final Finishing</div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">DELIVER TO:</span>
+                    <strong className="text-slate-900">Unit 1 (Furniture Assembly Workshop)</strong>
                   </div>
                 </div>
 
-                {/* Order & Transport Info Bar */}
-                <div className="voucher-meta-row">
-                  <div>
-                    <strong>Order Ref:</strong> {activeOrder ? activeOrder.title : 'Custom Dispatch'} (
-                    {activeOrder ? activeOrder.orderNumber : '—'})
-                  </div>
-                  <div>
-                    <strong>Vehicle / Tempo:</strong> {vehicleNumber}
-                  </div>
-                  <div>
-                    <strong>Driver / Handed By:</strong> {driverName}
-                  </div>
+                {/* Transport Info */}
+                <div className="flex items-center justify-between text-xs text-slate-700 flex-wrap gap-2 border-b border-slate-100 pb-3">
+                  <div><strong>Order Ref:</strong> {activeOrder ? activeOrder.title : 'Custom Dispatch'} ({activeOrder ? activeOrder.orderNumber : '—'})</div>
+                  <div><strong>Vehicle:</strong> {vehicleNumber}</div>
+                  <div><strong>Driver:</strong> {driverName}</div>
                 </div>
 
-                {/* Table of Transported Items */}
-                <div className="voucher-table-wrap">
-                  <table className="voucher-table">
-                    <thead>
+                {/* Transport Items Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border border-slate-200">
+                    <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                       <tr>
-                        <th style={{ width: '40px' }}>#</th>
-                        <th>Component Description</th>
-                        <th>Category</th>
-                        <th style={{ width: '180px' }}>Size (L × W × T)</th>
-                        <th style={{ width: '100px' }}>Dispatch Qty</th>
-                        <th>Notes for Unit 1 Assembly</th>
+                        <th className="p-2 w-8 text-center">#</th>
+                        <th className="p-2">Component Description</th>
+                        <th className="p-2">Category</th>
+                        <th className="p-2 w-44">Size (L × W × T)</th>
+                        <th className="p-2 w-24 text-center">Dispatch Qty</th>
+                        <th className="p-2">Notes for Unit 1</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-200">
                       {dispatchedItems.map((it, idx) => (
                         <tr key={it.id}>
-                          <td className="text-center">{idx + 1}</td>
-                          <td className="font-bold">{it.partName}</td>
-                          <td>
-                            <span className="voucher-cat-pill">
+                          <td className="p-2 text-center text-slate-400">{idx + 1}</td>
+                          <td className="p-2 font-bold text-slate-900">{it.partName}</td>
+                          <td className="p-2">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
                               {it.category === 'LAMINATION' ? 'Lamination Panel' : 'Frame Component'}
                             </span>
                           </td>
-                          <td className="font-mono">{it.dimensions}</td>
-                          <td className="font-mono font-bold text-center">
+                          <td className="p-2 font-mono">{it.dimensions}</td>
+                          <td className="p-2 font-mono font-bold text-center text-slate-900">
                             {it.dispatchingNowQty} pcs
                           </td>
-                          <td>{it.remarks || '—'}</td>
+                          <td className="p-2 text-slate-500">{it.remarks || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot>
+                    <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
                       <tr>
-                        <th colSpan={4} className="text-right">
-                          TOTAL PIECES DISPATCHED:
-                        </th>
-                        <th className="font-mono font-bold text-center">
+                        <td colSpan={4} className="p-2 text-right">TOTAL PIECES DISPATCHED:</td>
+                        <td className="p-2 font-mono text-center text-slate-900">
                           {dispatchedItems.reduce((sum, it) => sum + it.dispatchingNowQty, 0)} pcs
-                        </th>
-                        <th></th>
+                        </td>
+                        <td></td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
 
-                {/* Pallet Photos on Backside / Bottom (as requested by user) */}
+                {/* Pallet Photos */}
                 {palletPhotos.length > 0 && (
-                  <div className="voucher-pallet-photos-section">
-                    <div className="voucher-photos-title">
-                      📷 Loaded Pallet Reference Photos (For Unit 1 Assembly Team):
-                    </div>
-                    <div className="voucher-photos-grid">
+                  <div className="space-y-2 pt-2">
+                    <span className="text-xs font-bold text-slate-700 block">
+                      📷 Loaded Pallet Reference Photos (Unit 1 Team):
+                    </span>
+                    <div className="grid grid-cols-3 gap-3">
                       {palletPhotos.map((pUrl, i) => (
-                        <div key={i} className="voucher-photo-cell">
-                          <img src={pUrl} alt={`Pallet photo ${i + 1}`} className="voucher-photo-img" />
-                          <span className="photo-caption">Pallet View #{i + 1}</span>
+                        <div key={i} className="h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                          <img src={pUrl} alt={`Pallet ${i + 1}`} className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Dispatch Notes */}
-                {dispatchNotes && (
-                  <div className="voucher-notes-box">
-                    <strong>Dispatch Notes:</strong> {dispatchNotes}
-                  </div>
-                )}
-
                 {/* Signature Row */}
-                <div className="voucher-signatures-grid">
-                  <div className="sig-cell">
-                    <div className="sig-line" />
-                    <span className="sig-label">Prepared & Dispatched By (Unit 2)</span>
+                <div className="grid grid-cols-3 gap-6 pt-10 text-center text-xs">
+                  <div>
+                    <div className="border-b border-slate-400 mb-2 h-8" />
+                    <span className="text-slate-500 font-semibold">Prepared By (Unit 2)</span>
                   </div>
-
-                  <div className="sig-cell">
-                    <div className="sig-line" />
-                    <span className="sig-label">Driver / Transport Handover</span>
+                  <div>
+                    <div className="border-b border-slate-400 mb-2 h-8" />
+                    <span className="text-slate-500 font-semibold">Driver / Handover</span>
                   </div>
-
-                  <div className="sig-cell">
-                    <div className="sig-line" />
-                    <span className="sig-label">Received In Good Condition (Unit 1 Assembly)</span>
+                  <div>
+                    <div className="border-b border-slate-400 mb-2 h-8" />
+                    <span className="text-slate-500 font-semibold">Received at Unit 1</span>
                   </div>
                 </div>
               </div>
 
               {/* Bottom Nav */}
-              <div className="wizard-bottom-actions space-between">
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200 print:hidden">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
                   onClick={() => setWizardStep(2)}
                 >
-                  <span>← Back to Photos & Vehicle</span>
+                  ← Back to Photos & Vehicle
                 </button>
 
-                <div className="actions-cluster">
-                  <button type="button" className="btn-secondary" onClick={handlePrint}>
-                    <Printer size={16} />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs"
+                    onClick={handlePrint}
+                  >
+                    <Printer size={14} />
                     <span>Print</span>
                   </button>
 
                   <button
                     type="button"
-                    className="btn-primary"
+                    className="inline-flex items-center gap-1.5 px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
                     onClick={handleSaveChallan}
                   >
-                    <CheckCircle2 size={16} />
+                    <CheckCircle2 size={14} />
                     <span>Save & Mark Dispatched</span>
                   </button>
                 </div>
@@ -939,93 +945,90 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
           TAB 2: CHALLAN HISTORY (PAST DISPATCHES)
           ========================================================================= */}
       {activeSubTab === 'history' && (
-        <div className="challan-history-container">
+        <div className="space-y-4">
           {selectedHistoryChallan ? (
-            /* Selected Historical Challan Print/Inspection View */
-            <div className="history-inspection-wrapper">
-              <div className="history-inspection-header">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3 print:hidden">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
                   onClick={() => setSelectedHistoryChallan(null)}
                 >
-                  <span>← Back to Challans List</span>
+                  ← Back to Challans List
                 </button>
 
-                <div className="history-actions">
-                  <button type="button" className="btn-primary" onClick={handlePrint}>
-                    <Printer size={16} />
-                    <span>Print This Challan</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                  onClick={handlePrint}
+                >
+                  <Printer size={14} />
+                  <span>Print This Challan</span>
+                </button>
               </div>
 
-              {/* Reusable Printable Voucher */}
-              <div className="printable-challan-voucher">
-                <div className="voucher-header">
-                  <div className="voucher-company">
-                    <h1 className="company-name">FACTORY OUTWARD DELIVERY CHALLAN</h1>
-                    <div className="company-sub">Internal Wood Transfer Voucher</div>
+              {/* Printable Voucher */}
+              <div className="border border-slate-300 rounded-2xl p-6 bg-white space-y-5 shadow-xs">
+                <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
+                  <div>
+                    <h1 className="text-xl font-black tracking-tight text-slate-900 m-0">
+                      FACTORY OUTWARD DELIVERY CHALLAN
+                    </h1>
+                    <div className="text-xs text-slate-500 mt-0.5">Internal Wood Transfer Voucher</div>
                   </div>
-                  <div className="voucher-meta-box">
-                    <div className="voucher-no font-mono font-bold">
+                  <div className="text-right text-xs">
+                    <div className="font-mono font-black text-sm text-slate-900">
                       Challan No: {selectedHistoryChallan.challanNumber}
                     </div>
-                    <div className="voucher-date">Date: {selectedHistoryChallan.date}</div>
-                    <div className="voucher-time">Time: {selectedHistoryChallan.time}</div>
+                    <div className="text-slate-600">Date: {selectedHistoryChallan.date}</div>
+                    <div className="text-slate-400 font-mono text-[11px]">{selectedHistoryChallan.time}</div>
                   </div>
                 </div>
 
-                <div className="voucher-route-grid">
-                  <div className="route-cell">
-                    <span className="route-header-label">FROM (SOURCE):</span>
-                    <strong className="route-val">{selectedHistoryChallan.sourceUnit}</strong>
+                <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">FROM:</span>
+                    <strong className="text-slate-900">{selectedHistoryChallan.sourceUnit}</strong>
                   </div>
-                  <div className="route-cell">
-                    <span className="route-header-label">TO (DESTINATION):</span>
-                    <strong className="route-val">{selectedHistoryChallan.destinationUnit}</strong>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">TO:</span>
+                    <strong className="text-slate-900">{selectedHistoryChallan.destinationUnit}</strong>
                   </div>
                 </div>
 
-                <div className="voucher-meta-row">
-                  <div>
-                    <strong>Order Ref:</strong> {selectedHistoryChallan.orderTitle}
-                  </div>
-                  <div>
-                    <strong>Vehicle:</strong> {selectedHistoryChallan.vehicleNumber || '—'}
-                  </div>
-                  <div>
-                    <strong>Driver:</strong> {selectedHistoryChallan.driverName || '—'}
-                  </div>
+                <div className="flex items-center justify-between text-xs text-slate-700 flex-wrap gap-2 border-b border-slate-100 pb-3">
+                  <div><strong>Order Ref:</strong> {selectedHistoryChallan.orderTitle}</div>
+                  <div><strong>Vehicle:</strong> {selectedHistoryChallan.vehicleNumber || '—'}</div>
+                  <div><strong>Driver:</strong> {selectedHistoryChallan.driverName || '—'}</div>
                 </div>
 
-                <div className="voucher-table-wrap">
-                  <table className="voucher-table">
-                    <thead>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border border-slate-200">
+                    <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                       <tr>
-                        <th style={{ width: '40px' }}>#</th>
-                        <th>Component Description</th>
-                        <th>Category</th>
-                        <th>Size (Inches)</th>
-                        <th style={{ width: '100px' }}>Quantity</th>
-                        <th>Remarks</th>
+                        <th className="p-2 w-8 text-center">#</th>
+                        <th className="p-2">Component Description</th>
+                        <th className="p-2">Category</th>
+                        <th className="p-2 w-44">Size (Inches)</th>
+                        <th className="p-2 w-24 text-center">Quantity</th>
+                        <th className="p-2">Remarks</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-200">
                       {selectedHistoryChallan.items.map((it, idx) => (
                         <tr key={idx}>
-                          <td className="text-center">{idx + 1}</td>
-                          <td className="font-bold">{it.partName}</td>
-                          <td>
-                            <span className="voucher-cat-pill">
+                          <td className="p-2 text-center text-slate-400">{idx + 1}</td>
+                          <td className="p-2 font-bold text-slate-900">{it.partName}</td>
+                          <td className="p-2">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
                               {it.category === 'LAMINATION' ? 'Lamination Panel' : 'Frame Component'}
                             </span>
                           </td>
-                          <td className="font-mono">{it.dimensions}</td>
-                          <td className="font-mono font-bold text-center">
+                          <td className="p-2 font-mono">{it.dimensions}</td>
+                          <td className="p-2 font-mono font-bold text-center text-slate-900">
                             {it.dispatchingNowQty} pcs
                           </td>
-                          <td>{it.remarks || '—'}</td>
+                          <td className="p-2 text-slate-500">{it.remarks || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1033,107 +1036,94 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                 </div>
 
                 {selectedHistoryChallan.palletPhotos.length > 0 && (
-                  <div className="voucher-pallet-photos-section">
-                    <div className="voucher-photos-title">
+                  <div className="space-y-2 pt-2">
+                    <span className="text-xs font-bold text-slate-700 block">
                       📷 Loaded Pallet Reference Photos:
-                    </div>
-                    <div className="voucher-photos-grid">
+                    </span>
+                    <div className="grid grid-cols-3 gap-3">
                       {selectedHistoryChallan.palletPhotos.map((pUrl, i) => (
-                        <div key={i} className="voucher-photo-cell">
-                          <img src={pUrl} alt={`Pallet photo ${i + 1}`} className="voucher-photo-img" />
-                          <span className="photo-caption">Pallet View #{i + 1}</span>
+                        <div key={i} className="h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                          <img src={pUrl} alt={`Pallet ${i + 1}`} className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-
-                <div className="voucher-signatures-grid">
-                  <div className="sig-cell">
-                    <div className="sig-line" />
-                    <span className="sig-label">Dispatched By (Unit 2)</span>
-                  </div>
-                  <div className="sig-cell">
-                    <div className="sig-line" />
-                    <span className="sig-label">Driver / Handover</span>
-                  </div>
-                  <div className="sig-cell">
-                    <div className="sig-line" />
-                    <span className="sig-label">Received at Unit 1 Assembly</span>
-                  </div>
-                </div>
               </div>
             </div>
           ) : (
-            /* Challans Table */
-            <div className="challans-list-table-card">
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
               {challansList.length === 0 ? (
-                <div className="empty-order-state">
-                  <Truck size={36} className="text-muted" style={{ margin: '0 auto 0.75rem' }} />
-                  <h4>No Outward Challans Created Yet</h4>
-                  <p>Click "Create New Challan" above to generate your first delivery voucher for Unit 1.</p>
+                <div className="p-12 text-center text-slate-400 space-y-2">
+                  <Truck size={36} className="mx-auto text-slate-300" />
+                  <h4 className="text-sm font-bold text-slate-700 m-0">No Outward Challans Created Yet</h4>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    Click "Create Challan" above to generate your first delivery voucher for Unit 1.
+                  </p>
                 </div>
               ) : (
-                <div className="table-scroll-wrap">
-                  <table className="bulk-order-table">
-                    <thead>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
                       <tr>
-                        <th>Challan No</th>
-                        <th>Date & Time</th>
-                        <th>Order Ref</th>
-                        <th>Route</th>
-                        <th>Total Pieces</th>
-                        <th>Pallet Photos</th>
-                        <th>Vehicle / Driver</th>
-                        <th style={{ width: '130px' }}>Actions</th>
+                        <th className="p-3">Challan No</th>
+                        <th className="p-3">Date & Time</th>
+                        <th className="p-3">Order Ref</th>
+                        <th className="p-3">Route</th>
+                        <th className="p-3">Total Pieces</th>
+                        <th className="p-3">Pallet Photos</th>
+                        <th className="p-3">Vehicle / Driver</th>
+                        <th className="p-3 w-28 text-center">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100">
                       {challansList.map((ch) => {
                         const totalPcs = ch.items.reduce((s, it) => s + it.dispatchingNowQty, 0);
 
                         return (
-                          <tr key={ch.id}>
-                            <td className="font-mono font-bold text-emerald">{ch.challanNumber}</td>
-                            <td>
-                              <div>{ch.date}</div>
-                              <span className="text-muted text-xs">{ch.time}</span>
+                          <tr key={ch.id} className="hover:bg-slate-50/60 transition">
+                            <td className="p-3 font-mono font-bold text-slate-900">{ch.challanNumber}</td>
+                            <td className="p-3">
+                              <div className="font-semibold text-slate-800">{ch.date}</div>
+                              <span className="text-[10px] text-slate-400 font-mono">{ch.time}</span>
                             </td>
-                            <td className="font-bold">{ch.orderTitle}</td>
-                            <td>
-                              <span className="route-micro-tag">Unit 2 → Unit 1</span>
+                            <td className="p-3 font-bold text-slate-900">{ch.orderTitle}</td>
+                            <td className="p-3">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                                Unit 2 → Unit 1
+                              </span>
                             </td>
-                            <td className="font-mono font-bold">{totalPcs} pcs</td>
-                            <td>
+                            <td className="p-3 font-mono font-bold text-emerald-700">{totalPcs} pcs</td>
+                            <td className="p-3">
                               {ch.palletPhotos.length > 0 ? (
-                                <div className="table-pallet-photos-preview">
+                                <div className="flex items-center gap-1">
                                   <img
                                     src={ch.palletPhotos[0]}
                                     alt="Pallet"
-                                    className="table-pallet-img"
+                                    className="w-8 h-8 rounded-lg object-cover border border-slate-200"
                                   />
                                   {ch.palletPhotos.length > 1 && (
-                                    <span className="more-photos-pill">
+                                    <span className="text-[10px] font-mono text-slate-400">
                                       +{ch.palletPhotos.length - 1}
                                     </span>
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-muted">No photo</span>
+                                <span className="text-slate-400 text-xs">No photo</span>
                               )}
                             </td>
-                            <td>
+                            <td className="p-3 text-slate-600">
                               <div>{ch.vehicleNumber || '—'}</div>
-                              <span className="text-muted text-xs">{ch.driverName}</span>
+                              <span className="text-[10px] text-slate-400">{ch.driverName}</span>
                             </td>
-                            <td>
+                            <td className="p-3 text-center">
                               <button
                                 type="button"
-                                className="btn-table-action"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-lg text-xs font-semibold transition cursor-pointer shadow-2xs"
                                 onClick={() => setSelectedHistoryChallan(ch)}
                               >
-                                <Printer size={13} />
-                                <span>View & Print</span>
+                                <Printer size={12} />
+                                <span>View</span>
                               </button>
                             </td>
                           </tr>
@@ -1152,17 +1142,15 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
           TAB 3: UNIT 1 DISPATCH PROGRESS TRACKER
           ========================================================================= */}
       {activeSubTab === 'tracker' && (
-        <div className="dispatch-tracker-card">
-          <div className="tracker-intro-bar">
-            <div>
-              <h3 className="tracker-title">Unit 1 Assembly Fulfillment Tracker</h3>
-              <p className="tracker-subtitle">
-                Track how many components have already reached Unit 1 vs. what is still pending in Unit 2.
-              </p>
-            </div>
+        <div className="space-y-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+            <h3 className="text-sm font-extrabold text-slate-900 m-0">Unit 1 Assembly Fulfillment Tracker</h3>
+            <p className="text-xs text-slate-500 mt-0.5 mb-0">
+              Track how many components have already reached Unit 1 vs. what is still pending in Unit 2.
+            </p>
           </div>
 
-          <div className="orders-progress-stack">
+          <div className="space-y-4">
             {orders.map((ord) => {
               const allItems = buildOrderChallanItems(ord);
               const totalNeeded = allItems.reduce((s, it) => s + it.totalOrderQty, 0);
@@ -1178,43 +1166,44 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
               const frmSent = frmItems.reduce((s, it) => s + it.alreadyDispatchedQty, 0);
 
               return (
-                <div key={ord.id} className="order-tracker-card">
-                  <div className="order-tracker-top">
+                <div key={ord.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
-                      <h4 className="tracker-order-name">
+                      <h4 className="text-sm font-extrabold text-slate-900 m-0">
                         {ord.orderNumber} - {ord.title}
                       </h4>
-                      <span className="tracker-order-date">Created: {ord.date}</span>
+                      <span className="text-xs text-slate-400">Created: {ord.date}</span>
                     </div>
 
-                    <div className="tracker-right-summary">
-                      <div className="progress-percentage font-mono font-bold">
-                        {percent}% Transported
-                      </div>
-                      <span className="progress-pieces-count">
+                    <div className="text-right">
+                      <div className="text-base font-black font-mono text-slate-900">{percent}% Transported</div>
+                      <span className="text-xs text-slate-500">
                         {totalDispatched} of {totalNeeded} pieces sent to Unit 1
                       </span>
                     </div>
                   </div>
 
                   {/* Main Progress Bar */}
-                  <div className="progress-bar-track">
-                    <div className="progress-bar-fill" style={{ width: `${percent}%` }} />
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-slate-900 transition-all duration-300 rounded-full"
+                      style={{ width: `${percent}%` }}
+                    />
                   </div>
 
                   {/* Sub-Category Breakdowns */}
-                  <div className="sub-category-progress-grid">
-                    <div className="sub-progress-box">
-                      <div className="sub-progress-header">
-                        <Layers size={14} className="text-emerald" />
-                        <span>Lamination Panels:</span>
-                        <strong className="font-mono">
-                          {lamSent} / {lamNeeded} pcs
-                        </strong>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                          <Layers size={14} className="text-emerald-600" />
+                          <span>Lamination Panels:</span>
+                        </div>
+                        <strong className="font-mono text-slate-900">{lamSent} / {lamNeeded} pcs</strong>
                       </div>
-                      <div className="mini-progress-track">
+                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div
-                          className="mini-progress-fill emerald"
+                          className="h-full bg-emerald-600 rounded-full"
                           style={{
                             width: `${lamNeeded > 0 ? (lamSent / lamNeeded) * 100 : 0}%`
                           }}
@@ -1222,17 +1211,17 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="sub-progress-box">
-                      <div className="sub-progress-header">
-                        <Truck size={14} className="text-amber" />
-                        <span>Frame Components:</span>
-                        <strong className="font-mono">
-                          {frmSent} / {frmNeeded} pcs
-                        </strong>
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                          <Truck size={14} className="text-amber-500" />
+                          <span>Frame Components:</span>
+                        </div>
+                        <strong className="font-mono text-slate-900">{frmSent} / {frmNeeded} pcs</strong>
                       </div>
-                      <div className="mini-progress-track">
+                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div
-                          className="mini-progress-fill amber"
+                          className="h-full bg-amber-500 rounded-full"
                           style={{
                             width: `${frmNeeded > 0 ? (frmSent / frmNeeded) * 100 : 0}%`
                           }}
@@ -1241,11 +1230,11 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Action Button */}
-                  <div className="order-tracker-action-row">
+                  {/* Action CTA */}
+                  <div className="pt-2 border-t border-slate-100 flex justify-end">
                     <button
                       type="button"
-                      className="btn-secondary"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                       onClick={() => {
                         handleSelectOrder(ord.id);
                         setActiveSubTab('create');

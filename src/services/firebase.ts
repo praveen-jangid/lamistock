@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getFirestore, type Firestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs } from 'firebase/firestore';
+import { getFirestore, type Firestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, writeBatch } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import type { LaminatedPanel } from '../types/panel';
 
@@ -193,6 +193,37 @@ export async function syncPanelToFirestore(panel: LaminatedPanel): Promise<void>
   const cleanPanel = sanitizePanelForFirestore(panel);
   const panelRef = doc(dbInstance, FIRESTORE_PANELS_COLLECTION, cleanPanel.id);
   await setDoc(panelRef, cleanPanel, { merge: true });
+}
+
+/**
+ * Synchronizes an array of panels to Firestore using chunked writeBatch (up to 450 items per batch).
+ * Guarantees every panel is written as a distinct document.
+ */
+export async function batchSyncPanelsToFirestore(
+  panels: LaminatedPanel[],
+  onProgress?: (done: number, total: number) => void
+): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance || panels.length === 0) return;
+
+  const CHUNK_SIZE = 450; // Firestore maximum limit is 500
+  let completed = 0;
+
+  for (let i = 0; i < panels.length; i += CHUNK_SIZE) {
+    const chunk = panels.slice(i, i + CHUNK_SIZE);
+    const batch = writeBatch(dbInstance);
+
+    for (const panel of chunk) {
+      const cleanPanel = sanitizePanelForFirestore(panel);
+      const panelRef = doc(dbInstance, FIRESTORE_PANELS_COLLECTION, cleanPanel.id);
+      batch.set(panelRef, cleanPanel, { merge: true });
+    }
+
+    await batch.commit();
+    completed += chunk.length;
+    if (onProgress) {
+      onProgress(completed, panels.length);
+    }
+  }
 }
 
 export async function deletePanelFromFirestore(panelId: string): Promise<void> {

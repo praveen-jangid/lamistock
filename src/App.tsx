@@ -10,15 +10,18 @@ import {
 import { getAllChallans } from './services/challanDb';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
-import { PanelGrid } from './components/inventory/PanelGrid';
-import { ChallanView } from './components/challan/ChallanView';
-import { OrdersManagerView } from './components/orders/OrdersManagerView';
+import { StockPage } from './pages/StockPage';
+import { OrdersPage } from './pages/OrdersPage';
+import { ChallansPage } from './pages/ChallansPage';
+import { CreateChallanPage } from './pages/CreateChallanPage';
+import { TrackerPage } from './pages/TrackerPage';
 import { AddEditPanelModal } from './components/inventory/AddEditPanelModal';
+import { RapidStockEntryModal } from './components/inventory/RapidStockEntryModal';
 import { OrderMatcherModal } from './components/matcher/OrderMatcherModal';
 import { BulkOrderMatcherModal } from './components/matcher/BulkOrderMatcherModal';
 import { SpecSheetModal } from './components/share/SpecSheetModal';
 import { FirebaseSettingsModal } from './components/settings/FirebaseSettingsModal';
-import { Plus, Sparkles, TreePine, Cloud, FileSpreadsheet } from 'lucide-react';
+import { Cloud } from 'lucide-react';
 import { isFirebaseReady } from './services/firebase';
 
 export const App: React.FC = () => {
@@ -38,6 +41,7 @@ export const App: React.FC = () => {
   const [isBulkMatcherOpen, setIsBulkMatcherOpen] = useState(false);
   const [isAddEditOpen, setIsAddEditOpen] = useState(false);
   const [panelToEdit, setPanelToEdit] = useState<LaminatedPanel | null>(null);
+  const [isRapidStockOpen, setIsRapidStockOpen] = useState(false);
   const [isSpecSheetOpen, setIsSpecSheetOpen] = useState(false);
   const [specPanel, setSpecPanel] = useState<LaminatedPanel | null>(null);
   const [specMatchResult, setSpecMatchResult] = useState<MatchResult | null>(null);
@@ -166,21 +170,26 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="app-layout-shell">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div
-          className="mobile-sidebar-backdrop"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden"
           onClick={() => setIsMobileSidebarOpen(false)}
         />
       )}
 
-      {/* Persistent Factory Sidebar with React Router NavLinks */}
-      <div className={`sidebar-wrapper ${isMobileSidebarOpen ? 'mobile-open' : ''}`}>
+      {/* Persistent Factory Sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 md:static md:block transition-transform duration-300 ${
+          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
         <Sidebar
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           onOpenAddPanel={handleOpenAdd}
+          onOpenRapidMode={() => setIsRapidStockOpen(true)}
           onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
           stockCount={panels.length}
           challansCount={challansCount}
@@ -189,30 +198,31 @@ export const App: React.FC = () => {
       </div>
 
       {/* Main Viewport Shell */}
-      <div className="main-viewport-shell">
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         {/* Header with Route Breadcrumbs */}
         <Header
           activeTabTitle={getTabTitle()}
           onOpenMatcher={() => handleOpenMatcher()}
           onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
           onOpenAddPanel={handleOpenAdd}
+          onOpenRapidMode={() => setIsRapidStockOpen(true)}
           onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         />
 
-        <main className="main-content-area">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
           {/* Online Cloud Connection Alert Strip if not connected */}
           {!isFirebaseReady() && (
-            <div className="cloud-setup-alert-strip">
-              <div className="alert-strip-left">
-                <Cloud size={18} className="strip-cloud-icon" />
+            <div className="bg-white border-l-4 border-l-slate-900 border border-slate-200 rounded-xl p-4 mb-6 shadow-xs flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3 text-sm text-slate-700">
+                <Cloud size={18} className="text-slate-900 flex-shrink-0" />
                 <div>
                   <strong>Online Cloud Connection:</strong> Connect your free Firebase project to sync panel inventory and outward challans in real time.
                 </div>
               </div>
               <button
                 type="button"
-                className="btn-connect-cloud-strip"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition whitespace-nowrap shadow-sm"
                 onClick={() => setIsFirebaseOpen(true)}
               >
                 Connect Cloud Now →
@@ -220,7 +230,7 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Declarative Routes */}
+          {/* Declarative Routes to Dedicated Pages */}
           <Routes>
             <Route path="/" element={<Navigate to="/stock" replace />} />
 
@@ -228,111 +238,43 @@ export const App: React.FC = () => {
             <Route
               path="/stock"
               element={
-                <div className="stock-view-wrapper">
-                  <div className="stock-section-banner">
-                    <div className="banner-left">
-                      <div className="banner-icon-box">
-                        <TreePine size={24} />
-                      </div>
-                      <div>
-                        <h2 className="banner-title">Lamination Panel Inventory</h2>
-                        <p className="banner-subtitle">
-                          Surplus laminated panels stored in Unit 2 • Dimensions in Inches (″)
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="banner-right">
-                      <div className="stock-count-indicator">
-                        <span className="stock-number">{totalSheetsCount}</span>
-                        <span className="stock-label">Total Panels in Stock</span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="btn-banner-add"
-                        onClick={handleOpenAdd}
-                      >
-                        <Plus size={16} />
-                        <span>Add Panel</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className="btn-banner-match"
-                        onClick={() => handleOpenMatcher()}
-                        title="Match single urgent panel size"
-                      >
-                        <Sparkles size={16} />
-                        <span>Single Match</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className="btn-banner-match btn-banner-bulk"
-                        onClick={() => setIsBulkMatcherOpen(true)}
-                        title="Import Excel or multi-size order BOM"
-                      >
-                        <FileSpreadsheet size={16} />
-                        <span>Bulk Order (Excel)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <PanelGrid
-                    panels={panels}
-                    isLoading={isLoading}
-                    onAddNew={handleOpenAdd}
-                    onEdit={handleOpenEdit}
-                    onDelete={handleDeletePanel}
-                    onShare={(p) => handleOpenShare(p)}
-                    onMatchThis={(p) => handleOpenMatcher(p)}
-                  />
-                </div>
+                <StockPage
+                  panels={panels}
+                  isLoading={isLoading}
+                  totalSheetsCount={totalSheetsCount}
+                  onOpenAdd={handleOpenAdd}
+                  onOpenRapidMode={() => setIsRapidStockOpen(true)}
+                  onOpenMatcher={handleOpenMatcher}
+                  onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
+                  onEditPanel={handleOpenEdit}
+                  onDeletePanel={handleDeletePanel}
+                  onSharePanel={handleOpenShare}
+                />
               }
             />
 
             {/* Route 2: Production Orders */}
             <Route
               path="/orders"
-              element={
-                <OrdersManagerView
-                  onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
-                />
-              }
+              element={<OrdersPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
             />
 
             {/* Route 3: Outward Delivery Challans History */}
             <Route
               path="/challans"
-              element={
-                <ChallanView
-                  defaultSubTab="history"
-                  onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
-                />
-              }
+              element={<ChallansPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
             />
 
             {/* Route 4: Create New Challan Wizard */}
             <Route
               path="/challans/new"
-              element={
-                <ChallanView
-                  defaultSubTab="create"
-                  onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
-                />
-              }
+              element={<CreateChallanPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
             />
 
             {/* Route 5: Unit 1 Assembly Dispatch Tracker */}
             <Route
               path="/tracker"
-              element={
-                <ChallanView
-                  defaultSubTab="tracker"
-                  onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
-                />
-              }
+              element={<TrackerPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
             />
 
             {/* Fallback */}
@@ -347,6 +289,14 @@ export const App: React.FC = () => {
         panelToEdit={panelToEdit}
         onClose={() => setIsAddEditOpen(false)}
         onSave={handleSavePanel}
+        onOpenRapidMode={() => setIsRapidStockOpen(true)}
+      />
+
+      <RapidStockEntryModal
+        isOpen={isRapidStockOpen}
+        onClose={() => setIsRapidStockOpen(false)}
+        onSavePanel={handleSavePanel}
+        onDeletePanel={handleDeletePanel}
       />
 
       <OrderMatcherModal

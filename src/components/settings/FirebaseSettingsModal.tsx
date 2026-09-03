@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   getSavedFirebaseConfig,
   saveFirebaseConfig,
@@ -32,8 +32,6 @@ export const FirebaseSettingsModal: React.FC<FirebaseSettingsModalProps> = ({
   onClose,
   onConfigChanged
 }) => {
-  if (!isOpen) return null;
-
   const currentConfig = getSavedFirebaseConfig();
   const isConnected = isFirebaseReady();
 
@@ -54,6 +52,22 @@ export const FirebaseSettingsModal: React.FC<FirebaseSettingsModalProps> = ({
   const [copiedRules, setCopiedRules] = useState(false);
   const [copiedStorageRules, setCopiedStorageRules] = useState(false);
 
+  // Sync state whenever modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      const savedConfig = getSavedFirebaseConfig();
+      setApiKey(savedConfig?.apiKey || '');
+      setAuthDomain(savedConfig?.authDomain || '');
+      setProjectId(savedConfig?.projectId || '');
+      setStorageBucket(savedConfig?.storageBucket || '');
+      setMessagingSenderId(savedConfig?.messagingSenderId || '');
+      setAppId(savedConfig?.appId || '');
+      setRawJson('');
+      setStatusMessage(null);
+      setTestResult(null);
+    }
+  }, [isOpen]);
+
   const firestoreRulesSnippet = `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -72,7 +86,6 @@ service firebase.storage {
   }
 }`;
 
-  // Quick JSON paste parser
   const handleParseRawJson = () => {
     try {
       const cleaned = rawJson
@@ -176,47 +189,71 @@ service firebase.storage {
     onConfigChanged();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-container modal-lg" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-2xl my-6 overflow-hidden flex flex-col max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="modal-header">
-          <div className="modal-title-group">
-            <h2 className="modal-title">
-              <Cloud className="cloud-icon" /> Firestore Database & Cloud Setup
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50">
+          <div>
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 m-0 flex items-center gap-2">
+              <Cloud className="text-emerald-600" size={20} /> Firestore Database & Cloud Setup
             </h2>
-            <p className="modal-subtitle">
+            <p className="text-xs text-slate-500 mt-0.5">
               Configure Cloud Firestore to store and synchronize all lamination panels in real time between your Android phone and Mac.
             </p>
           </div>
-          <button type="button" className="btn-close-modal" onClick={onClose}>
-            <X size={20} />
+          <button
+            type="button"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+            onClick={onClose}
+          >
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="modal-form-scrollable">
+        <form onSubmit={handleSave} className="p-5 space-y-4 overflow-y-auto">
           {/* Status Indicator & Live Ping Test */}
-          <div className={`sync-status-card ${isConnected ? 'status-connected' : 'status-pending'}`}>
-            <div className="status-icon-wrapper">
-              {isConnected ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+          <div
+            className={`p-4 rounded-xl border flex items-center justify-between gap-4 flex-wrap ${
+              isConnected
+                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                : 'bg-amber-50/70 border-amber-200 text-amber-900'
+            }`}
+          >
+            <div className="flex items-center gap-3 flex-1 min-w-[240px]">
+              {isConnected ? (
+                <CheckCircle2 size={24} className="text-emerald-600 flex-shrink-0" />
+              ) : (
+                <AlertCircle size={24} className="text-amber-600 flex-shrink-0" />
+              )}
+              <div>
+                <h4 className="text-sm font-extrabold m-0">
+                  {isConnected ? 'Firestore Cloud Online' : 'Firebase Credentials Required'}
+                </h4>
+                <p className="text-xs opacity-90 mt-0.5 mb-0">
+                  {isConnected
+                    ? `Connected to project "${currentConfig?.projectId}". Panels sync to collection "${FIRESTORE_PANELS_COLLECTION}".`
+                    : 'Enter your Firebase project details below to store panels in Cloud Firestore.'}
+                </p>
+              </div>
             </div>
-            <div className="status-info" style={{ flex: 1 }}>
-              <h4>{isConnected ? 'Firestore Cloud Online' : 'Firebase Credentials Required'}</h4>
-              <p>
-                {isConnected
-                  ? `Connected to Firebase project "${currentConfig?.projectId}". All panels are stored in Firestore collection "${FIRESTORE_PANELS_COLLECTION}".`
-                  : 'Enter your Firebase project details below to store panels in Cloud Firestore.'}
-              </p>
-            </div>
+
             {isConnected && (
               <button
                 type="button"
-                className="btn-header-secondary"
-                style={{ alignSelf: 'center', whiteSpace: 'nowrap' }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
                 onClick={handleTestConnection}
                 disabled={isTesting}
               >
-                <Activity size={15} className={isTesting ? 'spin' : ''} />
+                <Activity size={14} className={isTesting ? 'animate-spin' : ''} />
                 <span>{isTesting ? 'Testing...' : 'Test Database'}</span>
               </button>
             )}
@@ -224,27 +261,39 @@ service firebase.storage {
 
           {/* Test Connection Output */}
           {testResult && (
-            <div className={`form-alert ${testResult.success ? 'alert-success' : 'alert-error'}`}>
+            <div
+              className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
+                testResult.success
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}
+            >
               {testResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
               <span>{testResult.message}</span>
             </div>
           )}
 
           {statusMessage && (
-            <div className={`form-alert alert-${statusMessage.type}`}>
+            <div
+              className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
+                statusMessage.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}
+            >
               {statusMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
               <span>{statusMessage.text}</span>
             </div>
           )}
 
           {/* Quick Paste Box */}
-          <div className="quick-paste-box">
-            <label className="form-label">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <label className="block text-xs font-bold text-slate-700">
               ⚡ Quick Paste from Firebase Console (Paste entire firebaseConfig object):
             </label>
-            <div className="paste-row">
+            <div className="flex gap-2">
               <textarea
-                className="form-textarea quick-textarea"
+                className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                 rows={2}
                 placeholder='{ "apiKey": "AIzaSy...", "projectId": "my-factory-app", ... }'
                 value={rawJson}
@@ -252,7 +301,7 @@ service firebase.storage {
               />
               <button
                 type="button"
-                className="btn-parse-json"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition self-center cursor-pointer shadow-xs disabled:opacity-50"
                 onClick={handleParseRawJson}
                 disabled={!rawJson.trim()}
               >
@@ -262,12 +311,14 @@ service firebase.storage {
           </div>
 
           {/* Detailed Config Inputs */}
-          <div className="config-fields-grid">
-            <div className="form-group">
-              <label className="form-label">API Key: <span className="req">*</span></label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                API Key: <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
-                className="form-input"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="AIzaSy..."
@@ -275,11 +326,13 @@ service firebase.storage {
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Project ID: <span className="req">*</span></label>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Project ID: <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
-                className="form-input"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
                 placeholder="furniture-stock-app"
@@ -287,157 +340,131 @@ service firebase.storage {
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Storage Bucket:</label>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Storage Bucket:</label>
               <input
                 type="text"
-                className="form-input"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                 value={storageBucket}
                 onChange={(e) => setStorageBucket(e.target.value)}
                 placeholder="furniture-stock-app.appspot.com"
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Auth Domain:</label>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Auth Domain:</label>
               <input
                 type="text"
-                className="form-input"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                 value={authDomain}
                 onChange={(e) => setAuthDomain(e.target.value)}
                 placeholder="furniture-stock-app.firebaseapp.com"
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">App ID:</label>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">App ID:</label>
               <input
                 type="text"
-                className="form-input"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                 value={appId}
                 onChange={(e) => setAppId(e.target.value)}
                 placeholder="1:123456789:web:abcdef..."
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Target Collection:</label>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Target Collection:</label>
               <input
                 type="text"
-                className="form-input"
+                className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 font-mono cursor-not-allowed"
                 value={FIRESTORE_PANELS_COLLECTION}
                 disabled
-                style={{ background: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }}
               />
             </div>
           </div>
 
           {/* Firestore Database Setup & Security Rules Guide */}
-          <div className="form-section" style={{ background: '#f8fafc' }}>
-            <div className="section-header" style={{ marginBottom: '0.6rem' }}>
-              <Database size={17} />
-              <h3>Firestore Database Setup & Security Rules</h3>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+              <Database size={16} className="text-emerald-600" />
+              <span>Firestore Security Rules (Copy & Paste to Firebase Console)</span>
             </div>
-            <p style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '1rem' }}>
-              In your Firebase Console, make sure <strong>Cloud Firestore</strong> is created. You can use these rules to allow read and write access to your lamination panels collection:
-            </p>
 
-            {/* Firestore Rules Codebox */}
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#334155' }}>
-                  Firestore Rules (Firebase Console → Firestore Database → Rules):
-                </span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                <span>Firestore Rules (Firebase Console → Firestore Database → Rules):</span>
                 <button
                   type="button"
-                  className="btn-action-outline"
-                  style={{ padding: '0.2rem 0.6rem', fontSize: '0.72rem' }}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer"
                   onClick={() => handleCopy(firestoreRulesSnippet, 'firestore')}
                 >
-                  {copiedRules ? <Check size={12} color="#059669" /> : <Copy size={12} />}
-                  <span>{copiedRules ? 'Copied!' : 'Copy Rule'}</span>
+                  {copiedRules ? <Check size={12} /> : <Copy size={12} />}
+                  <span>{copiedRules ? 'Copied!' : 'Copy'}</span>
                 </button>
               </div>
-              <pre style={{
-                background: '#0f172a',
-                color: '#f8fafc',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                fontSize: '0.75rem',
-                fontFamily: 'monospace',
-                overflowX: 'auto'
-              }}>
+              <pre className="p-3 bg-slate-900 text-slate-200 rounded-lg text-xs font-mono overflow-x-auto">
                 {firestoreRulesSnippet}
               </pre>
             </div>
 
-            {/* Storage Rules Codebox */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#334155' }}>
-                  Storage Rules (Firebase Console → Storage → Rules):
-                </span>
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                <span>Storage Rules (Firebase Console → Storage → Rules):</span>
                 <button
                   type="button"
-                  className="btn-action-outline"
-                  style={{ padding: '0.2rem 0.6rem', fontSize: '0.72rem' }}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer"
                   onClick={() => handleCopy(storageRulesSnippet, 'storage')}
                 >
-                  {copiedStorageRules ? <Check size={12} color="#059669" /> : <Copy size={12} />}
-                  <span>{copiedStorageRules ? 'Copied!' : 'Copy Rule'}</span>
+                  {copiedStorageRules ? <Check size={12} /> : <Copy size={12} />}
+                  <span>{copiedStorageRules ? 'Copied!' : 'Copy'}</span>
                 </button>
               </div>
-              <pre style={{
-                background: '#0f172a',
-                color: '#f8fafc',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                fontSize: '0.75rem',
-                fontFamily: 'monospace',
-                overflowX: 'auto'
-              }}>
+              <pre className="p-3 bg-slate-900 text-slate-200 rounded-lg text-xs font-mono overflow-x-auto">
                 {storageRulesSnippet}
               </pre>
             </div>
           </div>
 
           {/* Quick 30-second Help Guide */}
-          <div className="firebase-guide-accordion">
-            <div className="guide-header">
-              <HelpCircle size={16} />
-              <span>How to setup Firebase in 3 simple steps (100% Free):</span>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-600 space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800">
+              <HelpCircle size={15} />
+              <span>Setup Firebase in 3 simple steps (100% Free):</span>
             </div>
-            <ol className="guide-steps">
-              <li>
-                Open <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer">console.firebase.google.com</a> & create or select your project.
-              </li>
-              <li>
-                Under <strong>Build → Firestore Database</strong>, click <strong>Create Database</strong> (choose Native mode & location nearest to you).
-              </li>
-              <li>
-                In <strong>Project Settings → General</strong>, scroll to <em>Your apps</em>, add a Web App (&lt;/&gt;), and paste the configuration above.
-              </li>
+            <ol className="list-decimal list-inside space-y-1 pl-1">
+              <li>Open console.firebase.google.com & create a free project.</li>
+              <li>Under Build → Firestore Database, click Create Database (choose test mode or paste rule).</li>
+              <li>Under Project Settings → General, register a Web App and paste the keys above.</li>
             </ol>
           </div>
 
           {/* Footer Actions */}
-          <div className="modal-footer">
-            {isConnected && (
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200">
+            {isConnected ? (
               <button
                 type="button"
-                className="btn-danger-outline"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg text-xs font-semibold transition cursor-pointer"
                 onClick={handleDisconnect}
               >
-                <Trash2 size={16} />
-                <span>Disconnect Cloud</span>
+                <Trash2 size={13} />
+                <span>Disconnect</span>
               </button>
-            )}
-            <div className="footer-right-cluster">
-              <button type="button" className="btn-secondary" onClick={onClose}>
+            ) : <div />}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                onClick={onClose}
+              >
                 Close
               </button>
-              <button type="submit" className="btn-primary">
-                <Save size={16} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+              >
+                <Save size={14} />
                 <span>Save & Connect Cloud</span>
               </button>
             </div>

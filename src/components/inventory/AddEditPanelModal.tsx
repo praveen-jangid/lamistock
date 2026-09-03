@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { LaminatedPanel } from '../../types/panel';
 import { compressImage, DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../../services/imageCompressor';
 import {
@@ -8,7 +8,8 @@ import {
   Trash2,
   TreePine,
   Plus,
-  Minus
+  Minus,
+  Sparkles
 } from 'lucide-react';
 
 interface AddEditPanelModalProps {
@@ -16,16 +17,16 @@ interface AddEditPanelModalProps {
   panelToEdit?: LaminatedPanel | null;
   onClose: () => void;
   onSave: (panel: LaminatedPanel, frontImgBase64?: string, backImgBase64?: string) => Promise<void>;
+  onOpenRapidMode?: () => void;
 }
 
 export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
   isOpen,
   panelToEdit,
   onClose,
-  onSave
+  onSave,
+  onOpenRapidMode
 }) => {
-  if (!isOpen) return null;
-
   const isEditing = !!panelToEdit;
 
   // Form State in pure Inches
@@ -48,6 +49,22 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
   // File Inputs
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset or sync state when modal opens or panelToEdit changes
+  useEffect(() => {
+    if (isOpen) {
+      setLength(panelToEdit?.length || 72);
+      setWidth(panelToEdit?.width || 36);
+      setThickness(panelToEdit?.thickness || 0.75);
+      setQuantity(panelToEdit?.quantity || 1);
+      setWoodType(panelToEdit?.woodType || 'Laminated Wood');
+      setNotes(panelToEdit?.notes || '');
+      setFrontImagePreview(panelToEdit?.frontImageUrl);
+      setFrontImageChanged(false);
+      setBackImagePreview(panelToEdit?.backImageUrl);
+      setBackImageChanged(false);
+    }
+  }, [isOpen, panelToEdit]);
 
   const handleImageCapture = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -108,42 +125,73 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-container modal-md" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-lg my-8 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="modal-header">
-          <div className="modal-title-group">
-            <h2 className="modal-title">
+        <div className="flex items-center justify-between p-5 border-b border-slate-200">
+          <div>
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 m-0 flex items-center gap-2">
               {isEditing ? '✏️ Edit Lamination Panel' : '🪵 Add Surplus Lamination Panel'}
             </h2>
-            <p className="modal-subtitle">
+            <p className="text-xs text-slate-500 mt-0.5">
               Record extra panels by size in inches and optional front/back photos.
             </p>
           </div>
-          <button type="button" className="btn-close-modal" onClick={onClose}>
-            <X size={20} />
+          <button
+            type="button"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+            onClick={onClose}
+          >
+            <X size={18} />
           </button>
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="modal-form-scrollable">
-          {/* Section 1: Dimensions & Quantity at the top */}
-          <div className="form-section">
-            <div className="section-header">
-              <TreePine size={18} />
-              <h3>Panel Dimensions & Stock Quantity</h3>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+          {!isEditing && onOpenRapidMode && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800">
+                <Sparkles size={16} className="text-emerald-600 flex-shrink-0" />
+                <span>Adding 30–50 panels today? Use Rapid Camera Mode</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenRapidMode();
+                }}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer shadow-xs"
+              >
+                Launch Rapid ⚡
+              </button>
+            </div>
+          )}
+
+          {/* Section 1: Dimensions & Quantity */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+              <TreePine size={16} className="text-emerald-600" />
+              <span>Panel Dimensions & Stock Quantity</span>
             </div>
 
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label className="form-label">
-                  Length (Inches): <span className="req">*</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Length (Inches): <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
                   step="any"
-                  className="form-input"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                   value={length}
                   onChange={(e) => setLength(Number(e.target.value))}
                   min={1}
@@ -152,14 +200,14 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">
-                  Width (Inches): <span className="req">*</span>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Width (Inches): <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
                   step="any"
-                  className="form-input"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                   value={width}
                   onChange={(e) => setWidth(Number(e.target.value))}
                   min={1}
@@ -169,56 +217,60 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
               </div>
             </div>
 
-            <div className="form-grid-2 mt-3">
-              <div className="form-group">
-                <label className="form-label">
-                  Thickness (Inches): <span className="req">*</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Thickness (Inches): <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
                   step="any"
-                  className="form-input"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                   value={thickness}
                   onChange={(e) => setThickness(Number(e.target.value))}
                   min={0.1}
-                  placeholder="e.g. 0.75 or 1"
+                  placeholder="e.g. 0.75"
                   required
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Quantity Available: <span className="req">*</span></label>
-                <div className="quantity-stepper">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Quantity Available: <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden">
                   <button
                     type="button"
-                    className="stepper-btn"
+                    className="px-3 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   >
-                    <Minus size={16} />
+                    <Minus size={14} />
                   </button>
                   <input
                     type="number"
-                    className="stepper-input"
+                    className="w-full py-2 text-center text-sm font-mono font-bold text-slate-900 focus:outline-none"
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
                     min={1}
                   />
                   <button
                     type="button"
-                    className="stepper-btn"
+                    className="px-3 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                     onClick={() => setQuantity((q) => q + 1)}
                   >
-                    <Plus size={16} />
+                    <Plus size={14} />
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="form-group mt-3">
-              <label className="form-label">Wood Material:</label>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Wood Material:
+              </label>
               <input
                 type="text"
-                className="form-input"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
                 value={woodType}
                 onChange={(e) => setWoodType(e.target.value)}
                 placeholder="e.g. Teak, Oak, Mango, Pine"
@@ -227,33 +279,33 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
           </div>
 
           {/* Section 2: Photos (Optional) */}
-          <div className="form-section">
-            <div className="section-header">
-              <Camera size={18} />
-              <h3>Photos (Optional - Default Wood Texture Used If Empty)</h3>
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+              <Camera size={16} className="text-emerald-600" />
+              <span>Photos (Optional - Default Wood Texture Used If Empty)</span>
             </div>
 
-            <div className="dual-photo-grid">
-              {/* Front Photo Upload */}
-              <div className="photo-box">
-                <span className="photo-box-title">Front Face Photo</span>
-                <div className="photo-preview-box">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Front Photo */}
+              <div className="space-y-1.5">
+                <span className="block text-xs font-bold text-slate-600">Front Face Photo</span>
+                <div className="h-32 bg-slate-100 rounded-xl overflow-hidden relative border border-dashed border-slate-300 flex items-center justify-center">
                   <img
                     src={frontImagePreview || DEFAULT_MANGO_FRONT_IMAGE}
                     alt="Front preview"
-                    className="photo-preview-image"
+                    className="w-full h-full object-cover"
                   />
                   {frontImagePreview && (
                     <button
                       type="button"
-                      className="btn-remove-photo"
+                      className="absolute top-2 right-2 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm cursor-pointer transition"
                       onClick={() => {
                         setFrontImagePreview(undefined);
                         setFrontImageChanged(true);
                       }}
                       title="Remove uploaded photo"
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={13} />
                     </button>
                   )}
                 </div>
@@ -263,40 +315,40 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
                   type="file"
                   accept="image/*"
                   capture="environment"
-                  className="hidden-file-input"
+                  className="hidden"
                   onChange={(e) => handleImageCapture(e, 'front')}
                 />
 
                 <button
                   type="button"
-                  className="btn-upload-trigger"
+                  className="w-full py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
                   onClick={() => frontInputRef.current?.click()}
                 >
-                  <Camera size={14} />
-                  <span>{frontImagePreview ? 'Change Front Photo' : 'Upload Front Photo'}</span>
+                  <Camera size={13} />
+                  <span>{frontImagePreview ? 'Change Front' : 'Upload Front'}</span>
                 </button>
               </div>
 
-              {/* Back Photo Upload */}
-              <div className="photo-box">
-                <span className="photo-box-title">Back Face Photo</span>
-                <div className="photo-preview-box">
+              {/* Back Photo */}
+              <div className="space-y-1.5">
+                <span className="block text-xs font-bold text-slate-600">Back Face Photo</span>
+                <div className="h-32 bg-slate-100 rounded-xl overflow-hidden relative border border-dashed border-slate-300 flex items-center justify-center">
                   <img
                     src={backImagePreview || DEFAULT_MANGO_BACK_IMAGE}
                     alt="Back preview"
-                    className="photo-preview-image"
+                    className="w-full h-full object-cover"
                   />
                   {backImagePreview && (
                     <button
                       type="button"
-                      className="btn-remove-photo"
+                      className="absolute top-2 right-2 p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm cursor-pointer transition"
                       onClick={() => {
                         setBackImagePreview(undefined);
                         setBackImageChanged(true);
                       }}
                       title="Remove uploaded photo"
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={13} />
                     </button>
                   )}
                 </div>
@@ -306,28 +358,30 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
                   type="file"
                   accept="image/*"
                   capture="environment"
-                  className="hidden-file-input"
+                  className="hidden"
                   onChange={(e) => handleImageCapture(e, 'back')}
                 />
 
                 <button
                   type="button"
-                  className="btn-upload-trigger"
+                  className="w-full py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
                   onClick={() => backInputRef.current?.click()}
                 >
-                  <Camera size={14} />
-                  <span>{backImagePreview ? 'Change Back Photo' : 'Upload Back Photo'}</span>
+                  <Camera size={13} />
+                  <span>{backImagePreview ? 'Change Back' : 'Upload Back'}</span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Section 3: Notes */}
-          <div className="form-group">
-            <label className="form-label">Notes (Optional):</label>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              Notes (Optional):
+            </label>
             <input
               type="text"
-              className="form-input"
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Extra table top cutoffs, kiln dried"
@@ -335,12 +389,21 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose} disabled={isSaving}>
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+            <button
+              type="button"
+              className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
+              onClick={onClose}
+              disabled={isSaving}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={isSaving}>
-              <Save size={16} />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+              disabled={isSaving}
+            >
+              <Save size={15} />
               <span>{isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Add to Stock'}</span>
             </button>
           </div>

@@ -37,22 +37,30 @@ export const VisualCutDiagram: React.FC<VisualCutDiagramProps> = ({
   const svgPieceH = actualPieceW * scale;
 
   return (
-    <div className="cut-diagram-container">
-      <div className="cut-diagram-header">
-        <span className="cut-diagram-title">
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="font-bold text-slate-700">
           ✂️ Cut Optimization {rotated ? '(Rotated 90°)' : '(Standard)'}
         </span>
-        <span className={`waste-badge ${wastePercentage < 20 ? 'low-waste' : wastePercentage < 40 ? 'med-waste' : 'high-waste'}`}>
+        <span
+          className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+            wastePercentage < 20
+              ? 'bg-emerald-100 text-emerald-800'
+              : wastePercentage < 40
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-rose-100 text-rose-800'
+          }`}
+        >
           {wastePercentage}% Offcut
         </span>
       </div>
 
-      <div className="cut-svg-wrapper">
+      <div className="flex justify-center p-2 bg-white rounded-lg border border-slate-200/80 overflow-hidden">
         <svg
           width={svgStockW}
           height={svgStockH}
           viewBox={`0 0 ${svgStockW} ${svgStockH}`}
-          className="cut-svg"
+          className="overflow-visible"
         >
           {/* Stock Sheet Background */}
           <rect
@@ -60,7 +68,9 @@ export const VisualCutDiagram: React.FC<VisualCutDiagramProps> = ({
             y="0"
             width={svgStockW}
             height={svgStockH}
-            className="stock-sheet-rect"
+            fill="#e2e8f0"
+            stroke="#94a3b8"
+            strokeWidth="1"
             rx="4"
           />
 
@@ -78,7 +88,10 @@ export const VisualCutDiagram: React.FC<VisualCutDiagramProps> = ({
                     y={y + 1}
                     width={svgPieceW - 2}
                     height={svgPieceH - 2}
-                    className="cut-piece-rect"
+                    fill="#10b981"
+                    fillOpacity="0.85"
+                    stroke="#059669"
+                    strokeWidth="1"
                     rx="2"
                   />
                   {svgPieceW > 35 && svgPieceH > 25 && (
@@ -86,7 +99,10 @@ export const VisualCutDiagram: React.FC<VisualCutDiagramProps> = ({
                       x={x + svgPieceW / 2}
                       y={y + svgPieceH / 2 + 4}
                       textAnchor="middle"
-                      className="cut-piece-text"
+                      fill="#ffffff"
+                      fontSize="10"
+                      fontWeight="bold"
+                      fontFamily="monospace"
                     >
                       #{pieceNumber}
                     </text>
@@ -103,29 +119,33 @@ export const VisualCutDiagram: React.FC<VisualCutDiagramProps> = ({
               y="0"
               width={svgStockW - cutsAlongLength * svgPieceW}
               height={svgStockH}
-              className="remnant-hatch"
+              fill="#f43f5e"
+              fillOpacity="0.15"
+              stroke="#f43f5e"
+              strokeWidth="1"
+              strokeDasharray="3 3"
             />
           )}
         </svg>
       </div>
 
-      <div className="cut-diagram-meta">
-        <div className="cut-stat">
-          <span className="cut-stat-label">Stock Size:</span>
-          <span className="cut-stat-value">
+      <div className="space-y-1 text-xs">
+        <div className="flex justify-between text-slate-600">
+          <span className="text-slate-400">Stock Size:</span>
+          <span className="font-mono font-bold text-slate-800">
             {formatInches(stockLength)} × {formatInches(stockWidth)}
           </span>
         </div>
-        <div className="cut-stat">
-          <span className="cut-stat-label">Yield / Panel:</span>
-          <span className="cut-stat-value highlight-yield">
+        <div className="flex justify-between text-slate-600">
+          <span className="text-slate-400">Yield / Panel:</span>
+          <span className="font-bold text-emerald-700">
             {piecesPerSheet} {piecesPerSheet === 1 ? 'Piece' : 'Pieces'}
           </span>
         </div>
         {remnantLength !== undefined && remnantLength > 2 && (
-          <div className="cut-stat">
-            <span className="cut-stat-label">Usable Leftover:</span>
-            <span className="cut-stat-value">
+          <div className="flex justify-between text-slate-600">
+            <span className="text-slate-400">Usable Leftover:</span>
+            <span className="font-mono text-slate-700">
               ~{formatInches(remnantLength)} × {formatInches(remnantWidth || stockWidth)}
             </span>
           </div>

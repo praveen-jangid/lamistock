@@ -6,7 +6,8 @@ import {
   deletePanelFromFirestore,
   fetchAllPanelsFromFirestore,
   subscribeToFirestorePanels,
-  uploadLaminateImage
+  uploadLaminateImage,
+  batchSyncPanelsToFirestore
 } from './firebase';
 
 class FactoryLaminationDatabase extends Dexie {
@@ -154,12 +155,10 @@ export async function bulkImportPanels(panels: LaminatedPanel[], replace: boolea
   }));
   await localDb.panels.bulkPut(cleanPanels);
   if (isFirebaseReady()) {
-    for (const p of cleanPanels) {
-      try {
-        await syncPanelToFirestore(p);
-      } catch (err) {
-        console.warn('Bulk sync to Firestore item failed:', err);
-      }
+    try {
+      await batchSyncPanelsToFirestore(cleanPanels);
+    } catch (err) {
+      console.warn('Batch sync to Firestore failed:', err);
     }
   }
 }

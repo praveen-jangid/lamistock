@@ -8,7 +8,7 @@ import {
   setupRealtimeSync
 } from './services/db';
 import { getAllChallans } from './services/challan_db';
-import { Header } from './components/header';
+import { Topbar } from './components/topbar';
 import { Sidebar } from './components/sidebar';
 import { StockPage } from './pages/stock_page';
 import { OrdersPage } from './pages/orders_page';
@@ -47,8 +47,8 @@ export const App: React.FC = () => {
   const [specMatchResult, setSpecMatchResult] = useState<MatchResult | null>(null);
   const [isFirebaseOpen, setIsFirebaseOpen] = useState(false);
 
-  // Load Initial Panels
-  const loadPanels = async () => {
+  // Reload panels when database/firebase settings change
+  const handleConfigChanged = async () => {
     setIsLoading(true);
     try {
       const loaded = await initializeDatabase();
@@ -61,14 +61,30 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    loadPanels();
+    let isMounted = true;
+    initializeDatabase()
+      .then((loaded) => {
+        if (isMounted) {
+          setPanels(loaded);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading inventory:', err);
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
 
     // Subscribe to Firebase real-time updates if connected
     const unsubscribe = setupRealtimeSync((updatedPanels) => {
       setPanels(updatedPanels);
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // Save Panel handler
@@ -170,117 +186,122 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
-      {/* Mobile Sidebar Overlay */}
-      {isMobileSidebarOpen && (
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
+      {/* Full Topbar at the very top (100% full width, edge-to-edge, never blocked by sidebar) */}
+      <Topbar
+        activeTabTitle={getTabTitle()}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebarCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        onOpenMatcher={() => handleOpenMatcher()}
+        onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
+        onOpenAddPanel={handleOpenAdd}
+        onOpenRapidMode={() => setIsRapidStockOpen(true)}
+        onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
+        onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+      />
+
+      {/* Main Layout Area Below Topbar */}
+      <div className="flex-1 flex relative min-h-0">
+        {/* Mobile Sidebar Overlay (underneath topbar) */}
+        {isMobileSidebarOpen && (
+          <div
+            className="fixed inset-0 top-16 bg-slate-900/60 backdrop-blur-xs z-30 md:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+
+        {/* Persistent Factory Sidebar */}
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
+          className={`fixed top-16 bottom-0 left-0 z-30 md:static md:block transition-transform duration-300 ${
+            isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
+        >
+          <Sidebar
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onOpenAddPanel={handleOpenAdd}
+            onOpenRapidMode={() => setIsRapidStockOpen(true)}
+            onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
+            stockCount={panels.length}
+            challansCount={challansCount}
+            onNavigateMobile={() => setIsMobileSidebarOpen(false)}
+          />
+        </div>
 
-      {/* Persistent Factory Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 md:static md:block transition-transform duration-300 ${
-          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
-      >
-        <Sidebar
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onOpenAddPanel={handleOpenAdd}
-          onOpenRapidMode={() => setIsRapidStockOpen(true)}
-          onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
-          stockCount={panels.length}
-          challansCount={challansCount}
-          onNavigateMobile={() => setIsMobileSidebarOpen(false)}
-        />
-      </div>
-
-      {/* Main Viewport Shell */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-        {/* Header with Route Breadcrumbs */}
-        <Header
-          activeTabTitle={getTabTitle()}
-          onOpenMatcher={() => handleOpenMatcher()}
-          onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
-          onOpenAddPanel={handleOpenAdd}
-          onOpenRapidMode={() => setIsRapidStockOpen(true)}
-          onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
-          onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-        />
-
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-          {/* Online Cloud Connection Alert Strip if not connected */}
-          {!isFirebaseReady() && (
-            <div className="bg-white border-l-4 border-l-slate-900 border border-slate-200 rounded-xl p-4 mb-6 shadow-xs flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3 text-sm text-slate-700">
-                <Cloud size={18} className="text-slate-900 flex-shrink-0" />
-                <div>
-                  <strong>Online Cloud Connection:</strong> Connect your free Firebase project to sync panel inventory and outward challans in real time.
+        {/* Main Viewport Shell */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+            {/* Online Cloud Connection Alert Strip if not connected */}
+            {!isFirebaseReady() && (
+              <div className="bg-white border-l-4 border-l-slate-900 border border-slate-200 rounded-xl p-4 mb-6 shadow-xs flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3 text-sm text-slate-700">
+                  <Cloud size={18} className="text-slate-900 flex-shrink-0" />
+                  <div>
+                    <strong>Online Cloud Connection:</strong> Connect your free Firebase project to sync panel inventory and outward challans in real time.
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition whitespace-nowrap shadow-sm"
+                  onClick={() => setIsFirebaseOpen(true)}
+                >
+                  Connect Cloud Now →
+                </button>
               </div>
-              <button
-                type="button"
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition whitespace-nowrap shadow-sm"
-                onClick={() => setIsFirebaseOpen(true)}
-              >
-                Connect Cloud Now →
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* Declarative Routes to Dedicated Pages */}
-          <Routes>
-            <Route path="/" element={<Navigate to="/stock" replace />} />
+            {/* Declarative Routes to Dedicated Pages */}
+            <Routes>
+              <Route path="/" element={<Navigate to="/stock" replace />} />
 
-            {/* Route 1: Stock Inventory */}
-            <Route
-              path="/stock"
-              element={
-                <StockPage
-                  panels={panels}
-                  isLoading={isLoading}
-                  totalSheetsCount={totalSheetsCount}
-                  onOpenAdd={handleOpenAdd}
-                  onOpenRapidMode={() => setIsRapidStockOpen(true)}
-                  onOpenMatcher={handleOpenMatcher}
-                  onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
-                  onEditPanel={handleOpenEdit}
-                  onDeletePanel={handleDeletePanel}
-                  onSharePanel={handleOpenShare}
-                />
-              }
-            />
+              {/* Route 1: Stock Inventory */}
+              <Route
+                path="/stock"
+                element={
+                  <StockPage
+                    panels={panels}
+                    isLoading={isLoading}
+                    totalSheetsCount={totalSheetsCount}
+                    onOpenAdd={handleOpenAdd}
+                    onOpenRapidMode={() => setIsRapidStockOpen(true)}
+                    onOpenMatcher={handleOpenMatcher}
+                    onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
+                    onEditPanel={handleOpenEdit}
+                    onDeletePanel={handleDeletePanel}
+                    onSharePanel={handleOpenShare}
+                  />
+                }
+              />
 
-            {/* Route 2: Production Orders */}
-            <Route
-              path="/orders"
-              element={<OrdersPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
-            />
+              {/* Route 2: Production Orders */}
+              <Route
+                path="/orders"
+                element={<OrdersPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
+              />
 
-            {/* Route 3: Outward Delivery Challans History */}
-            <Route
-              path="/challans"
-              element={<ChallansPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
-            />
+              {/* Route 3: Outward Delivery Challans History */}
+              <Route
+                path="/challans"
+                element={<ChallansPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
+              />
 
-            {/* Route 4: Create New Challan Wizard */}
-            <Route
-              path="/challans/new"
-              element={<CreateChallanPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
-            />
+              {/* Route 4: Create New Challan Wizard */}
+              <Route
+                path="/challans/new"
+                element={<CreateChallanPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
+              />
 
-            {/* Route 5: Unit 1 Assembly Dispatch Tracker */}
-            <Route
-              path="/tracker"
-              element={<TrackerPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
-            />
+              {/* Route 5: Unit 1 Assembly Dispatch Tracker */}
+              <Route
+                path="/tracker"
+                element={<TrackerPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
+              />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/stock" replace />} />
-          </Routes>
-        </main>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/stock" replace />} />
+            </Routes>
+          </main>
+        </div>
       </div>
 
       {/* Modals */}
@@ -325,7 +346,7 @@ export const App: React.FC = () => {
       <FirebaseSettingsModal
         isOpen={isFirebaseOpen}
         onClose={() => setIsFirebaseOpen(false)}
-        onConfigChanged={loadPanels}
+        onConfigChanged={handleConfigChanged}
       />
     </div>
   );

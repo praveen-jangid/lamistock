@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import type { LaminatedPanel } from '../types/panel';
 import { compressImage, DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../services/image_compressor';
 import {
@@ -20,8 +20,14 @@ interface AddEditPanelModalProps {
   onOpenRapidMode?: () => void;
 }
 
-export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
-  isOpen,
+interface AddEditPanelModalFormProps {
+  panelToEdit?: LaminatedPanel | null;
+  onClose: () => void;
+  onSave: (panel: LaminatedPanel, frontImgBase64?: string, backImgBase64?: string) => Promise<void>;
+  onOpenRapidMode?: () => void;
+}
+
+const AddEditPanelModalForm: React.FC<AddEditPanelModalFormProps> = ({
   panelToEdit,
   onClose,
   onSave,
@@ -29,7 +35,7 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
 }) => {
   const isEditing = !!panelToEdit;
 
-  // Form State in pure Inches
+  // Form State in pure Inches - initialized directly from props
   const [length, setLength] = useState<number>(panelToEdit?.length || 72);
   const [width, setWidth] = useState<number>(panelToEdit?.width || 36);
   const [thickness, setThickness] = useState<number>(panelToEdit?.thickness || 0.75);
@@ -49,22 +55,6 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
   // File Inputs
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
-
-  // Reset or sync state when modal opens or panelToEdit changes
-  useEffect(() => {
-    if (isOpen) {
-      setLength(panelToEdit?.length || 72);
-      setWidth(panelToEdit?.width || 36);
-      setThickness(panelToEdit?.thickness || 0.75);
-      setQuantity(panelToEdit?.quantity || 1);
-      setWoodType(panelToEdit?.woodType || 'Laminated Wood');
-      setNotes(panelToEdit?.notes || '');
-      setFrontImagePreview(panelToEdit?.frontImageUrl);
-      setFrontImageChanged(false);
-      setBackImagePreview(panelToEdit?.backImageUrl);
-      setBackImageChanged(false);
-    }
-  }, [isOpen, panelToEdit]);
 
   const handleImageCapture = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -124,8 +114,6 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
       setIsSaving(false);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div
@@ -410,5 +398,25 @@ export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
         </form>
       </div>
     </div>
+  );
+};
+
+export const AddEditPanelModal: React.FC<AddEditPanelModalProps> = ({
+  isOpen,
+  panelToEdit,
+  onClose,
+  onSave,
+  onOpenRapidMode
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <AddEditPanelModalForm
+      key={panelToEdit?.id ?? 'new-panel'}
+      panelToEdit={panelToEdit}
+      onClose={onClose}
+      onSave={onSave}
+      onOpenRapidMode={onOpenRapidMode}
+    />
   );
 };

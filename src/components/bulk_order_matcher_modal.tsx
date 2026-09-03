@@ -15,7 +15,7 @@ import {
   exportProductionPlanToExcel
 } from '../services/bulk_matcher';
 import { formatDimensions, formatInches } from '../utils/units';
-import { VisualCutDiagram } from './visual_cut_diagram';
+import { VisualCutDiagram } from '../Feature/visual_cut_diagram';
 import {
   DEFAULT_MANGO_FRONT_IMAGE,
   DEFAULT_MANGO_BACK_IMAGE

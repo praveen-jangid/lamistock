@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import type { DeliveryChallan, ChallanComponentItem } from '../types/challan';
 import {
@@ -41,21 +41,13 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
   const isCreateRoute = location.pathname.includes('/new');
   const isTrackerRoute = location.pathname.includes('/tracker');
 
-  const initialTab =
-    defaultSubTab || (isTrackerRoute ? 'tracker' : isCreateRoute ? 'create' : 'history');
-
-  const [activeSubTab, setActiveSubTab] = useState<'create' | 'history' | 'tracker'>(initialTab);
-
-  // Sync tab with route changes
-  useEffect(() => {
-    if (isTrackerRoute) {
-      setActiveSubTab('tracker');
-    } else if (isCreateRoute) {
-      setActiveSubTab('create');
-    } else if (location.pathname === '/challans') {
-      setActiveSubTab('history');
-    }
-  }, [location.pathname, isCreateRoute, isTrackerRoute]);
+  // Derive activeSubTab directly during render without syncing state in useEffect
+  const activeSubTab: 'create' | 'history' | 'tracker' =
+    isTrackerRoute
+      ? 'tracker'
+      : isCreateRoute
+      ? 'create'
+      : (defaultSubTab || 'history');
 
   // Orders list
   const orders = getSavedOrders();
@@ -180,9 +172,18 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
   };
 
   // Filter items that will be included in this challan
-  const dispatchedItems = checklistItems.filter((it) => selectedItemIds.has(it.id));
-  const laminationDispatched = dispatchedItems.filter((it) => it.category === 'LAMINATION');
-  const framesDispatched = dispatchedItems.filter((it) => it.category === 'FRAME');
+  const dispatchedItems = useMemo(
+    () => checklistItems.filter((it) => selectedItemIds.has(it.id)),
+    [checklistItems, selectedItemIds]
+  );
+  const laminationDispatched = useMemo(
+    () => dispatchedItems.filter((it) => it.category === 'LAMINATION'),
+    [dispatchedItems]
+  );
+  const framesDispatched = useMemo(
+    () => dispatchedItems.filter((it) => it.category === 'FRAME'),
+    [dispatchedItems]
+  );
 
   // Save Challan
   const handleSaveChallan = () => {
@@ -214,7 +215,6 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
     setChallansList(getAllChallans());
     alert(`Outward Challan #${challanNumber} has been generated and saved!`);
     navigate('/challans');
-    setActiveSubTab('history');
     setSelectedHistoryChallan(newChallan);
   };
 
@@ -255,7 +255,6 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
             onClick={() => {
-              setActiveSubTab('create');
               navigate('/challans/new');
             }}
           >
@@ -271,7 +270,6 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
             onClick={() => {
-              setActiveSubTab('history');
               setSelectedHistoryChallan(null);
               navigate('/challans');
             }}
@@ -288,7 +286,6 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
             onClick={() => {
-              setActiveSubTab('tracker');
               navigate('/tracker');
             }}
           >
@@ -1236,9 +1233,7 @@ export const ChallanView: React.FC<ChallanViewProps> = ({
                       type="button"
                       className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                       onClick={() => {
-                        handleSelectOrder(ord.id);
-                        setActiveSubTab('create');
-                        setWizardStep(1);
+                        navigate(`/challans/new?orderId=${encodeURIComponent(ord.id)}`);
                       }}
                     >
                       <Plus size={14} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   getSavedFirebaseConfig,
   saveFirebaseConfig,
@@ -27,8 +27,7 @@ interface FirebaseSettingsModalProps {
   onConfigChanged: () => void;
 }
 
-export const FirebaseSettingsModal: React.FC<FirebaseSettingsModalProps> = ({
-  isOpen,
+const FirebaseSettingsModalContent: React.FC<Omit<FirebaseSettingsModalProps, 'isOpen'>> = ({
   onClose,
   onConfigChanged
 }) => {
@@ -51,22 +50,6 @@ export const FirebaseSettingsModal: React.FC<FirebaseSettingsModalProps> = ({
   // Copy states for security rules
   const [copiedRules, setCopiedRules] = useState(false);
   const [copiedStorageRules, setCopiedStorageRules] = useState(false);
-
-  // Sync state whenever modal is opened
-  useEffect(() => {
-    if (isOpen) {
-      const savedConfig = getSavedFirebaseConfig();
-      setApiKey(savedConfig?.apiKey || '');
-      setAuthDomain(savedConfig?.authDomain || '');
-      setProjectId(savedConfig?.projectId || '');
-      setStorageBucket(savedConfig?.storageBucket || '');
-      setMessagingSenderId(savedConfig?.messagingSenderId || '');
-      setAppId(savedConfig?.appId || '');
-      setRawJson('');
-      setStatusMessage(null);
-      setTestResult(null);
-    }
-  }, [isOpen]);
 
   const firestoreRulesSnippet = `rules_version = '2';
 service cloud.firestore {
@@ -105,7 +88,7 @@ service firebase.storage {
         type: 'success',
         text: 'Successfully extracted Firebase config keys!'
       });
-    } catch (e) {
+    } catch {
       setStatusMessage({
         type: 'error',
         text: 'Invalid JSON format. Please paste the config object from Firebase console.'
@@ -188,8 +171,6 @@ service firebase.storage {
     });
     onConfigChanged();
   };
-
-  if (!isOpen) return null;
 
   return (
     <div
@@ -472,5 +453,20 @@ service firebase.storage {
         </form>
       </div>
     </div>
+  );
+};
+
+export const FirebaseSettingsModal: React.FC<FirebaseSettingsModalProps> = ({
+  isOpen,
+  onClose,
+  onConfigChanged
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <FirebaseSettingsModalContent
+      onClose={onClose}
+      onConfigChanged={onConfigChanged}
+    />
   );
 };

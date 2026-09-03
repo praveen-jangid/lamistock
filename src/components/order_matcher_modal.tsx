@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { LaminatedPanel, OrderRequirement, MatchResult } from '../types/panel';
 import { formatDimensions, formatInches } from '../utils/units';
 import { matchOrderWithInventory } from '../services/matcher';
-import { VisualCutDiagram } from './visual_cut_diagram';
+import { VisualCutDiagram } from '../Feature/visual_cut_diagram';
 import { DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../services/image_compressor';
 import {
   X,
@@ -34,7 +34,7 @@ export const OrderMatcherModal: React.FC<OrderMatcherModalProps> = ({
   onDeductStock
 }) => {
   // Order Input State in Inches
-  const [orderNumber, setOrderNumber] = useState(`ORD-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [orderNumber, setOrderNumber] = useState(() => `ORD-${Math.floor(1000 + Math.random() * 9000)}`);
   const [reqLength, setReqLength] = useState<number>(initialPanel ? initialPanel.length : 36);
   const [reqWidth, setReqWidth] = useState<number>(initialPanel ? initialPanel.width : 24);
   const [reqThickness, setReqThickness] = useState<number>(initialPanel ? initialPanel.thickness : 0.75);

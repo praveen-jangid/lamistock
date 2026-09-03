@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
-  TreePine,
   Layers,
   FileSpreadsheet,
   Truck,
@@ -41,32 +40,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`h-screen sticky top-0 bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 transition-all duration-300 z-30 ${
+      className={`h-[calc(100vh-4rem)] sticky top-16 bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 transition-all duration-300 z-30 ${
         isCollapsed ? 'w-20' : 'w-72'
       }`}
     >
-      {/* Sidebar Header: Brand & Factory Unit */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-800">
-        <Link
-          to="/stock"
-          className="flex items-center gap-3 no-underline text-inherit group"
-          onClick={onNavigateMobile}
-        >
-          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-emerald-400 group-hover:bg-slate-700 transition shadow-sm flex-shrink-0">
-            <TreePine size={22} />
+      {/* Sidebar Header & Collapse Toggle */}
+      <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 border-b border-slate-800`}>
+        {!isCollapsed && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Factory Operations
+            </span>
           </div>
-          {!isCollapsed && (
-            <div className="flex flex-col">
-              <span className="font-extrabold text-base tracking-tight text-white leading-tight">
-                LamiStock
-              </span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Factory ERP
-              </span>
-            </div>
-          )}
-        </Link>
-
+        )}
         <button
           type="button"
           className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"

@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Rules for Lamination Panel photos (front & back images)
+    match /lamination_panels/{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { calculateCutYield, matchOrderWithInventory } from '../services/matcher';
 import { formatDimensions } from '../utils/units';
-import { parseDimensionToInches } from '../utils/excelParser';
-import { matchBulkOrderWithInventory } from '../services/bulkMatcher';
+import { parseDimensionToInches } from '../utils/excel_parser';
+import { matchBulkOrderWithInventory } from '../services/bulk_matcher';
 import type { BulkOrderItem, LaminatedPanel } from '../types/panel';
 
 console.log('--- STARTING MANGO WOOD INCHES TEST SUITE ---');

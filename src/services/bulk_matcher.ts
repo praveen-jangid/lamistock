@@ -7,7 +7,7 @@ import type {
 } from '../types/panel';
 import { calculateCutYield } from './matcher';
 import * as XLSX from 'xlsx';
-import { saveBlobAs } from '../utils/excelParser';
+import { saveBlobAs } from '../utils/excel_parser';
 
 export interface BulkMatchOptions {
   allowRotation?: boolean;

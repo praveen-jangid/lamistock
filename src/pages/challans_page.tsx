@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChallanView } from '../components/challan/ChallanView';
+import { ChallanView } from '../components/challan_view';
 
 interface ChallansPageProps {
   onOpenBulkMatcher: () => void;

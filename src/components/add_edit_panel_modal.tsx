@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { LaminatedPanel } from '../../types/panel';
-import { compressImage, DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../../services/imageCompressor';
+import type { LaminatedPanel } from '../types/panel';
+import { compressImage, DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../services/image_compressor';
 import {
   X,
   Camera,

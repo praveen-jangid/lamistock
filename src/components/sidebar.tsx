@@ -14,7 +14,7 @@ import {
   MapPin,
   ArrowRight
 } from 'lucide-react';
-import { isFirebaseReady } from '../../services/firebase';
+import { isFirebaseReady } from '../services/firebase';
 
 interface SidebarProps {
   isCollapsed: boolean;

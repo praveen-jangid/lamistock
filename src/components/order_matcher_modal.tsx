@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import type { LaminatedPanel, OrderRequirement, MatchResult } from '../../types/panel';
-import { formatDimensions, formatInches } from '../../utils/units';
-import { matchOrderWithInventory } from '../../services/matcher';
-import { VisualCutDiagram } from './VisualCutDiagram';
-import { DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../../services/imageCompressor';
+import type { LaminatedPanel, OrderRequirement, MatchResult } from '../types/panel';
+import { formatDimensions, formatInches } from '../utils/units';
+import { matchOrderWithInventory } from '../services/matcher';
+import { VisualCutDiagram } from './visual_cut_diagram';
+import { DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../services/image_compressor';
 import {
   X,
   Sparkles,

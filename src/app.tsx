@@ -7,20 +7,20 @@ import {
   deletePanel,
   setupRealtimeSync
 } from './services/db';
-import { getAllChallans } from './services/challanDb';
-import { Header } from './components/layout/Header';
-import { Sidebar } from './components/layout/Sidebar';
-import { StockPage } from './pages/StockPage';
-import { OrdersPage } from './pages/OrdersPage';
-import { ChallansPage } from './pages/ChallansPage';
-import { CreateChallanPage } from './pages/CreateChallanPage';
-import { TrackerPage } from './pages/TrackerPage';
-import { AddEditPanelModal } from './components/inventory/AddEditPanelModal';
-import { RapidStockEntryModal } from './components/inventory/RapidStockEntryModal';
-import { OrderMatcherModal } from './components/matcher/OrderMatcherModal';
-import { BulkOrderMatcherModal } from './components/matcher/BulkOrderMatcherModal';
-import { SpecSheetModal } from './components/share/SpecSheetModal';
-import { FirebaseSettingsModal } from './components/settings/FirebaseSettingsModal';
+import { getAllChallans } from './services/challan_db';
+import { Header } from './components/header';
+import { Sidebar } from './components/sidebar';
+import { StockPage } from './pages/stock_page';
+import { OrdersPage } from './pages/orders_page';
+import { ChallansPage } from './pages/challans_page';
+import { CreateChallanPage } from './pages/create_challan_page';
+import { TrackerPage } from './pages/tracker_page';
+import { AddEditPanelModal } from './components/add_edit_panel_modal';
+import { RapidStockEntryModal } from './components/rapid_stock_entry_modal';
+import { OrderMatcherModal } from './components/order_matcher_modal';
+import { BulkOrderMatcherModal } from './components/bulk_order_matcher_modal';
+import { SpecSheetModal } from './components/spec_sheet_modal';
+import { FirebaseSettingsModal } from './components/firebase_settings_modal';
 import { Cloud } from 'lucide-react';
 import { isFirebaseReady } from './services/firebase';
 

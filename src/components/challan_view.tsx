@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import type { DeliveryChallan, ChallanComponentItem } from '../../types/challan';
+import type { DeliveryChallan, ChallanComponentItem } from '../types/challan';
 import {
   getSavedOrders,
   getAllChallans,
   saveChallan,
   getNextChallanNumber,
   buildOrderChallanItems
-} from '../../services/challanDb';
-import { compressImage } from '../../services/imageCompressor';
+} from '../services/challan_db';
+import { compressImage } from '../services/image_compressor';
 import {
   Truck,
   Plus,

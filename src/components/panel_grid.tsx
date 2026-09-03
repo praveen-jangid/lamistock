@@ -1,6 +1,6 @@
 import React from 'react';
-import type { LaminatedPanel } from '../../types/panel';
-import { PanelCard } from './PanelCard';
+import type { LaminatedPanel } from '../types/panel';
+import { PanelCard } from './panel_card';
 import { TreePine, Plus, Camera, Loader2 } from 'lucide-react';
 
 interface PanelGridProps {

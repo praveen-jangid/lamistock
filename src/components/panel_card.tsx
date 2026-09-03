@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import type { LaminatedPanel } from '../../types/panel';
-import { formatDimensions } from '../../utils/units';
-import { DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../../services/imageCompressor';
+import type { LaminatedPanel } from '../types/panel';
+import { formatDimensions } from '../utils/units';
+import { DEFAULT_MANGO_FRONT_IMAGE, DEFAULT_MANGO_BACK_IMAGE } from '../services/image_compressor';
 import {
   RotateCw,
   Sparkles,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { OrdersManagerView } from '../components/orders/OrdersManagerView';
+import { OrdersManagerView } from '../components/orders_manager_view';
 
 interface OrdersPageProps {
   onOpenBulkMatcher: () => void;

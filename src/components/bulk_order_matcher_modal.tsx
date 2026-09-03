@@ -4,22 +4,22 @@ import type {
   BulkOrderItem,
   BulkOrderMatchSummary,
   BulkCandidateCut
-} from '../../types/panel';
+} from '../types/panel';
 import {
   parseOrderSpreadsheet,
   downloadOrderTemplateExcel,
   parseDimensionToInches
-} from '../../utils/excelParser';
+} from '../utils/excel_parser';
 import {
   matchBulkOrderWithInventory,
   exportProductionPlanToExcel
-} from '../../services/bulkMatcher';
-import { formatDimensions, formatInches } from '../../utils/units';
-import { VisualCutDiagram } from './VisualCutDiagram';
+} from '../services/bulk_matcher';
+import { formatDimensions, formatInches } from '../utils/units';
+import { VisualCutDiagram } from './visual_cut_diagram';
 import {
   DEFAULT_MANGO_FRONT_IMAGE,
   DEFAULT_MANGO_BACK_IMAGE
-} from '../../services/imageCompressor';
+} from '../services/image_compressor';
 import {
   X,
   FileSpreadsheet,

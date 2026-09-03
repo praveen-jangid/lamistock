@@ -1,6 +1,6 @@
 import React from 'react';
-import type { CutLayout } from '../../types/panel';
-import { formatInches } from '../../utils/units';
+import type { CutLayout } from '../types/panel';
+import { formatInches } from '../utils/units';
 
 interface VisualCutDiagramProps {
   layout: CutLayout;

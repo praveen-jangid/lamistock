@@ -6,7 +6,7 @@ import {
   testFirestoreConnection,
   FIRESTORE_PANELS_COLLECTION,
   type FirebaseConfig
-} from '../../services/firebase';
+} from '../services/firebase';
 import {
   X,
   Cloud,

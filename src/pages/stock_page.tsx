@@ -1,6 +1,6 @@
 import React from 'react';
 import type { LaminatedPanel, MatchResult } from '../types/panel';
-import { PanelGrid } from '../components/inventory/PanelGrid';
+import { PanelGrid } from '../components/panel_grid';
 import { TreePine, Camera, Plus, Sparkles, FileSpreadsheet } from 'lucide-react';
 
 interface StockPageProps {

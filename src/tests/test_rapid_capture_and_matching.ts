@@ -1,5 +1,5 @@
 import { matchOrderWithInventory } from '../services/matcher';
-import { matchBulkOrderWithInventory } from '../services/bulkMatcher';
+import { matchBulkOrderWithInventory } from '../services/bulk_matcher';
 import type { LaminatedPanel, OrderRequirement, BulkOrderItem } from '../types/panel';
 
 console.log('--- RUNNING RAPID STOCK & MULTI-BOARD MATCHING TESTS ---');

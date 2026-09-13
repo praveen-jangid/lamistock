@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getFirestore, type Firestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, writeBatch } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import type { LaminatedPanel } from '../types/panel';
+import type { Product } from '../types/product';
 
 let appInstance: FirebaseApp | null = null;
 let dbInstance: Firestore | null = null;
@@ -12,6 +13,8 @@ const LEGACY_STORAGE_KEY = 'factory_mango_wood_firebase_config';
 
 export const FIRESTORE_PANELS_COLLECTION = 'lamination_panels';
 export const FIREBASE_STORAGE_PANELS_PATH = 'lamination_panels';
+export const FIRESTORE_PRODUCTS_COLLECTION = 'products';
+export const FIREBASE_STORAGE_PRODUCTS_PATH = 'products';
 
 export interface FirebaseConfig {
   apiKey: string;
@@ -20,9 +23,21 @@ export interface FirebaseConfig {
   storageBucket: string;
   messagingSenderId: string;
   appId: string;
+  measurementId?: string;
 }
 
-export function getSavedFirebaseConfig(): FirebaseConfig | null {
+// Default factory Firebase configuration - Zero-config online sync by default
+export const DEFAULT_FIREBASE_CONFIG: FirebaseConfig = {
+  apiKey: "AIzaSyCanvE1HAr2hN2ng4XkkciXdxrGNZhzLHs",
+  authDomain: "lamistock-76afd.firebaseapp.com",
+  projectId: "lamistock-76afd",
+  storageBucket: "lamistock-76afd.firebasestorage.app",
+  messagingSenderId: "1039234743708",
+  appId: "1:1039234743708:web:d89a79f1227cd6ee451c59",
+  measurementId: "G-P5SQ7QL3V0"
+};
+
+export function getSavedFirebaseConfig(): FirebaseConfig {
   try {
     let raw = localStorage.getItem(FIREBASE_CONFIG_STORAGE_KEY);
     if (!raw) {
@@ -32,7 +47,12 @@ export function getSavedFirebaseConfig(): FirebaseConfig | null {
         localStorage.setItem(FIREBASE_CONFIG_STORAGE_KEY, raw);
       }
     }
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.apiKey && parsed.projectId && parsed.projectId.includes('lamistock')) {
+        return parsed;
+      }
+    }
 
     // Also support environment variables (e.g. in .env file)
     const envApiKey = (import.meta as any).env?.VITE_FIREBASE_API_KEY;
@@ -42,26 +62,25 @@ export function getSavedFirebaseConfig(): FirebaseConfig | null {
         apiKey: envApiKey,
         authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || `${envProjectId}.firebaseapp.com`,
         projectId: envProjectId,
-        storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || `${envProjectId}.appspot.com`,
+        storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || `${envProjectId}.firebasestorage.app`,
         messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-        appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || ''
+        appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || '',
+        measurementId: (import.meta as any).env?.VITE_FIREBASE_MEASUREMENT_ID || ''
       };
     }
-
-    return null;
   } catch (e) {
     console.error('Error reading Firebase config from storage', e);
-    return null;
   }
+
+  // Default to factory Firebase project credentials
+  return DEFAULT_FIREBASE_CONFIG;
 }
 
 export function saveFirebaseConfig(config: FirebaseConfig | null): void {
   if (!config) {
     localStorage.removeItem(FIREBASE_CONFIG_STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
-    appInstance = null;
-    dbInstance = null;
-    storageInstance = null;
+    initializeFirebase(DEFAULT_FIREBASE_CONFIG);
   } else {
     localStorage.setItem(FIREBASE_CONFIG_STORAGE_KEY, JSON.stringify(config));
     initializeFirebase(config);
@@ -89,6 +108,9 @@ export function initializeFirebase(customConfig?: FirebaseConfig): boolean {
     return false;
   }
 }
+
+// Auto-initialize Firebase immediately on load so the app is always connected
+initializeFirebase();
 
 export function isFirebaseReady(): boolean {
   if (!appInstance) {
@@ -292,3 +314,152 @@ export function subscribeToFirestorePanels(onUpdate: (panels: LaminatedPanel[]) 
   );
   return unsubscribe;
 }
+
+// -------------------------------------------------------------
+// Product Database Cloud Operations
+// -------------------------------------------------------------
+
+export async function uploadProductImage(
+  base64DataUrl: string,
+  productId: string
+): Promise<string> {
+  if (!isFirebaseReady() || !storageInstance) {
+    return base64DataUrl;
+  }
+
+  try {
+    const filename = `${FIREBASE_STORAGE_PRODUCTS_PATH}/${productId}_${Date.now()}.jpg`;
+    const storageRef = ref(storageInstance, filename);
+    await uploadString(storageRef, base64DataUrl, 'data_url');
+    const downloadUrl = await getDownloadURL(storageRef);
+    return downloadUrl;
+  } catch (err) {
+    console.warn('Firebase storage product upload failed, using local base64:', err);
+    return base64DataUrl;
+  }
+}
+
+export function sanitizeProductForFirestore(product: Product): Record<string, any> {
+  const clean: Record<string, any> = {
+    id: String(product.id),
+    name: String(product.name || ''),
+    code: String(product.code || ''),
+    customerName: String(product.customerName || ''),
+    photoUrl: product.photoUrl || '',
+    description: product.description || '',
+    createdAt: product.createdAt || new Date().toISOString(),
+    updatedAt: product.updatedAt || new Date().toISOString()
+  };
+
+  if (product.woodPlan) {
+    clean.woodPlan = {
+      id: String(product.woodPlan.id || ''),
+      productId: String(product.id),
+      sourceFileName: product.woodPlan.sourceFileName || '',
+      importedAt: product.woodPlan.importedAt || new Date().toISOString(),
+      updatedAt: product.woodPlan.updatedAt || new Date().toISOString(),
+      notes: product.woodPlan.notes || '',
+      laminationItems: (product.woodPlan.laminationItems || []).map((it) => ({
+        id: String(it.id),
+        partName: String(it.partName || ''),
+        qtyPerUnit: Number(it.qtyPerUnit) || 1,
+        length: Number(it.length) || 0,
+        width: Number(it.width) || 0,
+        thickness: Number(it.thickness) || 0,
+        rawSize: it.rawSize || '',
+        woodType: it.woodType || 'Mango Wood',
+        remarks: it.remarks || ''
+      })),
+      frameItems: (product.woodPlan.frameItems || []).map((it) => ({
+        id: String(it.id),
+        partName: String(it.partName || ''),
+        qtyPerUnit: Number(it.qtyPerUnit) || 1,
+        length: Number(it.length) || 0,
+        width: Number(it.width) || 0,
+        thickness: Number(it.thickness) || 0,
+        rawSize: it.rawSize || '',
+        woodType: it.woodType || 'Solid Mango Wood',
+        remarks: it.remarks || ''
+      }))
+    };
+  }
+
+  // Remove any remaining undefined keys
+  Object.keys(clean).forEach((k) => {
+    if (clean[k] === undefined) {
+      delete clean[k];
+    }
+  });
+
+  return clean;
+}
+
+export async function syncProductToFirestore(product: Product): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance) return;
+  const cleanProduct = sanitizeProductForFirestore(product);
+  const prodRef = doc(dbInstance, FIRESTORE_PRODUCTS_COLLECTION, cleanProduct.id);
+  await setDoc(prodRef, cleanProduct, { merge: true });
+}
+
+export async function deleteProductFromFirestore(productId: string): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance) return;
+  const prodRef = doc(dbInstance, FIRESTORE_PRODUCTS_COLLECTION, productId);
+  await deleteDoc(prodRef);
+}
+
+export async function fetchAllProductsFromFirestore(): Promise<Product[]> {
+  if (!isFirebaseReady() || !dbInstance) return [];
+  const querySnapshot = await getDocs(collection(dbInstance, FIRESTORE_PRODUCTS_COLLECTION));
+  const products: Product[] = [];
+  querySnapshot.forEach((docSnap) => {
+    if (docSnap.id !== '__connection_test__') {
+      const data = docSnap.data() as any;
+      products.push({
+        id: docSnap.id,
+        name: data.name || '',
+        code: data.code || '',
+        customerName: data.customerName || '',
+        photoUrl: data.photoUrl || '',
+        description: data.description || '',
+        createdAt: data.createdAt || new Date().toISOString(),
+        updatedAt: data.updatedAt || new Date().toISOString(),
+        woodPlan: data.woodPlan || undefined
+      });
+    }
+  });
+  return products;
+}
+
+export function subscribeToFirestoreProducts(onUpdate: (products: Product[]) => void): () => void {
+  if (!isFirebaseReady() || !dbInstance) {
+    return () => {};
+  }
+  const unsubscribe = onSnapshot(
+    collection(dbInstance, FIRESTORE_PRODUCTS_COLLECTION),
+    (snapshot) => {
+      const products: Product[] = [];
+      snapshot.forEach((docSnap) => {
+        if (docSnap.id !== '__connection_test__') {
+          const data = docSnap.data() as any;
+          products.push({
+            id: docSnap.id,
+            name: data.name || '',
+            code: data.code || '',
+            customerName: data.customerName || '',
+            photoUrl: data.photoUrl || '',
+            description: data.description || '',
+            createdAt: data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString(),
+            woodPlan: data.woodPlan || undefined
+          });
+        }
+      });
+      onUpdate(products);
+    },
+    (error) => {
+      console.error('Firestore products subscription error:', error);
+    }
+  );
+  return unsubscribe;
+}
+

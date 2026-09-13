@@ -8,7 +8,7 @@ interface ChallansPageProps {
 export const ChallansPage: React.FC<ChallansPageProps> = ({ onOpenBulkMatcher }) => {
   return (
     <div className="space-y-6">
-      <ChallanView defaultSubTab="history" onOpenBulkMatcher={onOpenBulkMatcher} />
+      <ChallanView onOpenBulkMatcher={onOpenBulkMatcher} />
     </div>
   );
 };

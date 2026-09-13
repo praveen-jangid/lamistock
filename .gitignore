@@ -20,6 +20,7 @@ dist-ssr
 # Android build outputs & local config
 *.apk
 *.aab
+*.pdf
 local.properties
 .gradle/
 build/

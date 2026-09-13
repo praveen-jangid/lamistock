@@ -1,16 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import type { LaminatedPanel, MatchResult } from './types/panel';
+import type { Product, WoodPlan } from './types/product';
 import {
   initializeDatabase,
   savePanel,
   deletePanel,
   setupRealtimeSync
 } from './services/db';
+import {
+  initializeProductsDatabase,
+  saveProduct,
+  deleteProduct,
+  saveWoodPlanForProduct,
+  setupProductsRealtimeSync
+} from './services/product_db';
+import {
+  parseWoodPlanSpreadsheet,
+  type ExtractedWoodPlanResult
+} from './utils/wood_plan_parser';
 import { getAllChallans } from './services/challan_db';
 import { Topbar } from './components/topbar';
 import { Sidebar } from './components/sidebar';
+import { RightSidebar } from './components/right_sidebar';
+import { BottomNav } from './components/bottom_nav';
 import { StockPage } from './pages/stock_page';
+import { ProductsPage } from './pages/products_page';
+import { WoodPlansPage } from './pages/wood_plans_page';
 import { OrdersPage } from './pages/orders_page';
 import { ChallansPage } from './pages/challans_page';
 import { CreateChallanPage } from './pages/create_challan_page';
@@ -21,21 +37,32 @@ import { OrderMatcherModal } from './components/order_matcher_modal';
 import { BulkOrderMatcherModal } from './components/bulk_order_matcher_modal';
 import { SpecSheetModal } from './components/spec_sheet_modal';
 import { FirebaseSettingsModal } from './components/firebase_settings_modal';
+import { AddEditProductModal } from './components/add_edit_product_modal';
+import { WoodPlanPreviewModal } from './components/wood_plan_preview_modal';
+import { WoodPlanViewModal } from './components/wood_plan_view_modal';
 import { Cloud } from 'lucide-react';
 import { isFirebaseReady } from './services/firebase';
 
 export const App: React.FC = () => {
+  // Stock Inventory State
   const [panels, setPanels] = useState<LaminatedPanel[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Products & Wood Plans State
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(true);
+
   // Layout state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState<boolean>(() => {
+    const saved = localStorage.getItem('lamistock_right_sidebar_collapsed');
+    return saved !== null ? saved === 'true' : true;
+  });
 
   // Location / Route info
   const location = useLocation();
 
-  // Modal States
+  // Stock Modals State
   const [isMatcherOpen, setIsMatcherOpen] = useState(false);
   const [matcherInitialPanel, setMatcherInitialPanel] = useState<LaminatedPanel | null>(null);
   const [isBulkMatcherOpen, setIsBulkMatcherOpen] = useState(false);
@@ -47,21 +74,41 @@ export const App: React.FC = () => {
   const [specMatchResult, setSpecMatchResult] = useState<MatchResult | null>(null);
   const [isFirebaseOpen, setIsFirebaseOpen] = useState(false);
 
-  // Reload panels when database/firebase settings change
+  // Product & Wood Plan Modals State
+  const [isAddEditProductOpen, setIsAddEditProductOpen] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [isWoodPlanPreviewOpen, setIsWoodPlanPreviewOpen] = useState(false);
+  const [extractedWoodPlan, setExtractedWoodPlan] = useState<ExtractedWoodPlanResult | null>(null);
+  const [targetProductIdForUpload, setTargetProductIdForUpload] = useState<string | null>(null);
+  const [isWoodPlanViewOpen, setIsWoodPlanViewOpen] = useState(false);
+  const [selectedProductForWoodPlan, setSelectedProductForWoodPlan] = useState<Product | null>(null);
+
+  // Hidden file input for Wood Plan Excel uploads
+  const woodPlanFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reload panels and products when database/firebase settings change
   const handleConfigChanged = async () => {
     setIsLoading(true);
+    setIsProductsLoading(true);
     try {
-      const loaded = await initializeDatabase();
-      setPanels(loaded);
+      const [loadedPanels, loadedProducts] = await Promise.all([
+        initializeDatabase(),
+        initializeProductsDatabase()
+      ]);
+      setPanels(loadedPanels);
+      setProducts(loadedProducts);
     } catch (err) {
-      console.error('Error loading inventory:', err);
+      console.error('Error reloading databases:', err);
     } finally {
       setIsLoading(false);
+      setIsProductsLoading(false);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
+
+    // 1. Initialize Stock Panels
     initializeDatabase()
       .then((loaded) => {
         if (isMounted) {
@@ -71,23 +118,41 @@ export const App: React.FC = () => {
       })
       .catch((err) => {
         console.error('Error loading inventory:', err);
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       });
 
-    // Subscribe to Firebase real-time updates if connected
-    const unsubscribe = setupRealtimeSync((updatedPanels) => {
-      setPanels(updatedPanels);
+    // 2. Initialize Products Catalog
+    initializeProductsDatabase()
+      .then((prods) => {
+        if (isMounted) {
+          setProducts(prods);
+          setIsProductsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading products catalog:', err);
+        if (isMounted) setIsProductsLoading(false);
+      });
+
+    // 3. Realtime subscriptions
+    const unsubscribePanels = setupRealtimeSync((updatedPanels) => {
+      if (isMounted) setPanels(updatedPanels);
+    });
+
+    const unsubscribeProducts = setupProductsRealtimeSync((updatedProducts) => {
+      if (isMounted) setProducts(updatedProducts);
     });
 
     return () => {
       isMounted = false;
-      unsubscribe();
+      unsubscribePanels();
+      unsubscribeProducts();
     };
   }, []);
 
-  // Save Panel handler
+  // -------------------------------------------------------------
+  // Panel Handlers
+  // -------------------------------------------------------------
   const handleSavePanel = async (
     panel: LaminatedPanel,
     frontImgBase64?: string,
@@ -105,7 +170,6 @@ export const App: React.FC = () => {
     });
   };
 
-  // Delete Panel handler
   const handleDeletePanel = async (panel: LaminatedPanel) => {
     const confirmDelete = window.confirm(
       `Are you sure you want to remove this ${panel.length}″ × ${panel.width}″ panel from stock?`
@@ -116,7 +180,6 @@ export const App: React.FC = () => {
     setPanels((prev) => prev.filter((p) => p.id !== panel.id));
   };
 
-  // Deduct Stock handler (from Order Matcher)
   const handleDeductStock = async (panelId: string, quantityToDeduct: number) => {
     const targetPanel = panels.find((p) => p.id === panelId);
     if (!targetPanel) return;
@@ -131,7 +194,6 @@ export const App: React.FC = () => {
     setPanels((prev) => prev.map((p) => (p.id === panelId ? updated : p)));
   };
 
-  // Bulk Deduct Stock handler (from Bulk Order Matcher)
   const handleBulkDeductStock = async (
     allocations: { panelId: string; quantityToDeduct: number }[]
   ) => {
@@ -150,7 +212,111 @@ export const App: React.FC = () => {
     }
   };
 
+  // -------------------------------------------------------------
+  // Product Handlers
+  // -------------------------------------------------------------
+  const handleSaveProduct = async (product: Product, photoBase64?: string) => {
+    const saved = await saveProduct(product, photoBase64);
+    setProducts((prev) => {
+      const index = prev.findIndex((p) => p.id === saved.id);
+      if (index >= 0) {
+        const next = [...prev];
+        next[index] = saved;
+        return next;
+      }
+      return [saved, ...prev];
+    });
+  };
+
+  const handleDeleteProduct = async (product: Product) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete product "${product.name} (${product.code})"? This will also remove its associated wood plan.`
+    );
+    if (!confirmDelete) return;
+
+    await deleteProduct(product.id);
+    setProducts((prev) => prev.filter((p) => p.id !== product.id));
+    if (selectedProductForWoodPlan?.id === product.id) {
+      setIsWoodPlanViewOpen(false);
+      setSelectedProductForWoodPlan(null);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // Wood Plan Handlers & Excel Upload
+  // -------------------------------------------------------------
+  const handleTriggerWoodPlanUpload = (productId?: string) => {
+    setTargetProductIdForUpload(productId || null);
+    if (woodPlanFileInputRef.current) {
+      woodPlanFileInputRef.current.value = '';
+      woodPlanFileInputRef.current.click();
+    }
+  };
+
+  const handleWoodPlanFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const extracted = parseWoodPlanSpreadsheet(buffer, file.name);
+
+      setExtractedWoodPlan(extracted);
+      setIsWoodPlanPreviewOpen(true);
+    } catch (err: any) {
+      console.error('Error parsing wood plan excel:', err);
+      window.alert(err?.message || 'Could not parse Excel file. Please ensure it is a valid spreadsheet.');
+    }
+  };
+
+  const handleSaveWoodPlanFromPreview = async (
+    productId: string,
+    woodPlan: WoodPlan,
+    newProductData?: { name: string; code: string; customerName: string }
+  ) => {
+    let finalProductId = productId;
+
+    // If saving as a brand new product
+    if (productId === 'new' && newProductData) {
+      const newProduct: Product = {
+        id: `prod-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        name: newProductData.name,
+        code: newProductData.code,
+        customerName: newProductData.customerName,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        woodPlan
+      };
+      const saved = await saveProduct(newProduct);
+      setProducts((prev) => [saved, ...prev]);
+      finalProductId = saved.id;
+    } else {
+      // Attaching wood plan to existing product
+      const updated = await saveWoodPlanForProduct(productId, woodPlan);
+      setProducts((prev) => prev.map((p) => (p.id === productId ? updated : p)));
+    }
+
+    // Open view modal for the freshly saved plan
+    const savedProd = products.find((p) => p.id === finalProductId);
+    if (savedProd) {
+      setSelectedProductForWoodPlan({ ...savedProd, woodPlan });
+    }
+  };
+
+  const handleUpdateWoodPlanDirectly = async (productId: string, updatedPlan: WoodPlan) => {
+    const updated = await saveWoodPlanForProduct(productId, updatedPlan);
+    setProducts((prev) => prev.map((p) => (p.id === productId ? updated : p)));
+    setSelectedProductForWoodPlan(updated);
+  };
+
+  const handleViewWoodPlan = (product: Product) => {
+    setSelectedProductForWoodPlan(product);
+    setIsWoodPlanViewOpen(true);
+  };
+
+  // -------------------------------------------------------------
   // Modal Openers
+  // -------------------------------------------------------------
   const handleOpenAdd = () => {
     setPanelToEdit(null);
     setIsAddEditOpen(true);
@@ -178,6 +344,8 @@ export const App: React.FC = () => {
   // Derive page title from current route path
   const getTabTitle = () => {
     const path = location.pathname;
+    if (path.startsWith('/products')) return 'All Products Master Database';
+    if (path.startsWith('/wood-plans')) return 'Wood Plans & Cutting Blueprints';
     if (path.startsWith('/orders')) return 'Production Orders (Excel BOM)';
     if (path.startsWith('/challans/new')) return 'Create Outward Challan (Unit 2 → Unit 1)';
     if (path.startsWith('/challans')) return 'Outward Delivery Challans';
@@ -187,35 +355,37 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
-      {/* Full Topbar at the very top (100% full width, edge-to-edge, never blocked by sidebar) */}
-      <Topbar
-        activeTabTitle={getTabTitle()}
-        isSidebarCollapsed={isSidebarCollapsed}
-        onToggleSidebarCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        onOpenMatcher={() => handleOpenMatcher()}
-        onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
-        onOpenAddPanel={handleOpenAdd}
-        onOpenRapidMode={() => setIsRapidStockOpen(true)}
-        onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
-        onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+      {/* Hidden File Input for Excel Wood Plan Uploads */}
+      <input
+        type="file"
+        ref={woodPlanFileInputRef}
+        accept=".xlsx,.xls,.csv"
+        onChange={handleWoodPlanFileSelected}
+        className="hidden"
       />
+
+      {/* Topbar (100% full width) */}
+      <div id="topbar" className="print:hidden">
+        <Topbar
+          activeTabTitle={getTabTitle()}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebarCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          isRightSidebarOpen={!isRightSidebarCollapsed}
+          onToggleRightSidebar={() => {
+            setIsRightSidebarCollapsed((prev) => {
+              const next = !prev;
+              localStorage.setItem('lamistock_right_sidebar_collapsed', String(next));
+              return next;
+            });
+          }}
+          onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
+        />
+      </div>
 
       {/* Main Layout Area Below Topbar */}
       <div className="flex-1 flex relative min-h-0">
-        {/* Mobile Sidebar Overlay (underneath topbar) */}
-        {isMobileSidebarOpen && (
-          <div
-            className="fixed inset-0 top-16 bg-slate-900/60 backdrop-blur-xs z-30 md:hidden"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          />
-        )}
-
-        {/* Persistent Factory Sidebar */}
-        <div
-          className={`fixed top-16 bottom-0 left-0 z-30 md:static md:block transition-transform duration-300 ${
-            isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          }`}
-        >
+        {/* Desktop Factory Sidebar */}
+        <div id="sidebar" className="hidden md:block print:hidden">
           <Sidebar
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -224,20 +394,21 @@ export const App: React.FC = () => {
             onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
             stockCount={panels.length}
             challansCount={challansCount}
-            onNavigateMobile={() => setIsMobileSidebarOpen(false)}
+            productsCount={products.length}
+            onNavigateMobile={() => {}}
           />
         </div>
 
         {/* Main Viewport Shell */}
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 pb-24 sm:p-6 md:pb-8 lg:p-8">
             {/* Online Cloud Connection Alert Strip if not connected */}
             {!isFirebaseReady() && (
               <div className="bg-white border-l-4 border-l-slate-900 border border-slate-200 rounded-xl p-4 mb-6 shadow-xs flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3 text-sm text-slate-700">
                   <Cloud size={18} className="text-slate-900 flex-shrink-0" />
                   <div>
-                    <strong>Online Cloud Connection:</strong> Connect your free Firebase project to sync panel inventory and outward challans in real time.
+                    <strong>Online Cloud Connection:</strong> Connect your free Firebase project to sync panel inventory, products, and wood plans in real time.
                   </div>
                 </div>
                 <button
@@ -273,25 +444,64 @@ export const App: React.FC = () => {
                 }
               />
 
-              {/* Route 2: Production Orders */}
+              {/* Route 2: All Products Master Database */}
               <Route
-                path="/orders"
-                element={<OrdersPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
+                path="/products"
+                element={
+                  <ProductsPage
+                    products={products}
+                    isLoading={isProductsLoading}
+                    onOpenAddProduct={() => {
+                      setProductToEdit(null);
+                      setIsAddEditProductOpen(true);
+                    }}
+                    onEditProduct={(p) => {
+                      setProductToEdit(p);
+                      setIsAddEditProductOpen(true);
+                    }}
+                    onDeleteProduct={handleDeleteProduct}
+                    onViewWoodPlan={handleViewWoodPlan}
+                    onUploadExcelForProduct={(prodId) => handleTriggerWoodPlanUpload(prodId)}
+                  />
+                }
               />
 
-              {/* Route 3: Outward Delivery Challans History */}
+              {/* Route 3: Wood Plans Cutting Blueprints */}
+              <Route
+                path="/wood-plans"
+                element={
+                  <WoodPlansPage
+                    products={products}
+                    onViewWoodPlan={handleViewWoodPlan}
+                    onUploadExcelForProduct={(prodId) => handleTriggerWoodPlanUpload(prodId)}
+                  />
+                }
+              />
+
+              {/* Route 4: Production Orders */}
+              <Route
+                path="/orders"
+                element={
+                  <OrdersPage
+                    products={products}
+                    onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
+                  />
+                }
+              />
+
+              {/* Route 5: Outward Delivery Challans History */}
               <Route
                 path="/challans"
                 element={<ChallansPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
               />
 
-              {/* Route 4: Create New Challan Wizard */}
+              {/* Route 6: Create New Challan Wizard */}
               <Route
                 path="/challans/new"
                 element={<CreateChallanPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
               />
 
-              {/* Route 5: Unit 1 Assembly Dispatch Tracker */}
+              {/* Route 7: Unit 1 Assembly Dispatch Tracker */}
               <Route
                 path="/tracker"
                 element={<TrackerPage onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)} />}
@@ -302,6 +512,33 @@ export const App: React.FC = () => {
             </Routes>
           </main>
         </div>
+
+        {/* Desktop Right Quick Actions Sidebar */}
+        <div id="right-sidebar" className="hidden lg:block print:hidden">
+          <RightSidebar
+            isCollapsed={isRightSidebarCollapsed}
+            onToggleCollapse={() => {
+              setIsRightSidebarCollapsed(true);
+              localStorage.setItem('lamistock_right_sidebar_collapsed', 'true');
+            }}
+            onOpenRapidMode={() => setIsRapidStockOpen(true)}
+            onOpenAddPanel={handleOpenAdd}
+            onOpenMatcher={() => handleOpenMatcher()}
+            onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
+          />
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation Bar & FAB */}
+      <div id="bottom-nav" className="print:hidden">
+        <BottomNav
+          stockCount={panels.length}
+          challansCount={challansCount}
+          onOpenRapidMode={() => setIsRapidStockOpen(true)}
+          onOpenAddPanel={handleOpenAdd}
+          onOpenMatcher={() => handleOpenMatcher()}
+          onOpenBulkMatcher={() => setIsBulkMatcherOpen(true)}
+        />
       </div>
 
       {/* Modals */}
@@ -347,6 +584,31 @@ export const App: React.FC = () => {
         isOpen={isFirebaseOpen}
         onClose={() => setIsFirebaseOpen(false)}
         onConfigChanged={handleConfigChanged}
+      />
+
+      {/* Product & Wood Plan Modals */}
+      <AddEditProductModal
+        isOpen={isAddEditProductOpen}
+        productToEdit={productToEdit}
+        onClose={() => setIsAddEditProductOpen(false)}
+        onSave={handleSaveProduct}
+      />
+
+      <WoodPlanPreviewModal
+        isOpen={isWoodPlanPreviewOpen}
+        extractedData={extractedWoodPlan}
+        products={products}
+        preselectedProductId={targetProductIdForUpload}
+        onClose={() => setIsWoodPlanPreviewOpen(false)}
+        onSaveWoodPlan={handleSaveWoodPlanFromPreview}
+      />
+
+      <WoodPlanViewModal
+        isOpen={isWoodPlanViewOpen}
+        product={selectedProductForWoodPlan}
+        onClose={() => setIsWoodPlanViewOpen(false)}
+        onUpdateWoodPlan={handleUpdateWoodPlanDirectly}
+        onTriggerExcelUpload={handleTriggerWoodPlanUpload}
       />
     </div>
   );

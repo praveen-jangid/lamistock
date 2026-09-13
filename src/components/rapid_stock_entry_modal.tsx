@@ -58,6 +58,8 @@ export const RapidStockEntryModal: React.FC<RapidStockEntryModalProps> = ({
   // DOM Refs
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
+  const frontGalleryInputRef = useRef<HTMLInputElement>(null);
+  const backGalleryInputRef = useRef<HTMLInputElement>(null);
   const lengthInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus Length input when capture screen opens
@@ -191,7 +193,7 @@ export const RapidStockEntryModal: React.FC<RapidStockEntryModalProps> = ({
         className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-xl my-6 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Hidden Camera Inputs */}
+        {/* Hidden Camera Inputs (Forces system camera intent directly) */}
         <input
           type="file"
           accept="image/*"
@@ -205,6 +207,21 @@ export const RapidStockEntryModal: React.FC<RapidStockEntryModalProps> = ({
           accept="image/*"
           capture="environment"
           ref={backInputRef}
+          className="hidden"
+          onChange={(e) => handlePhotoCapture(e, 'back')}
+        />
+        {/* Hidden Gallery Pickers (Without capture attribute) */}
+        <input
+          type="file"
+          accept="image/*"
+          ref={frontGalleryInputRef}
+          className="hidden"
+          onChange={(e) => handlePhotoCapture(e, 'front')}
+        />
+        <input
+          type="file"
+          accept="image/*"
+          ref={backGalleryInputRef}
           className="hidden"
           onChange={(e) => handlePhotoCapture(e, 'back')}
         />
@@ -472,15 +489,25 @@ export const RapidStockEntryModal: React.FC<RapidStockEntryModalProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        className="h-28 rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50 bg-slate-50 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer p-2 text-center"
-                        onClick={() => frontInputRef.current?.click()}
-                      >
-                        <Camera size={26} className="text-emerald-600" />
-                        <span className="text-xs font-bold text-slate-800">Snap Front</span>
-                        <span className="text-[10px] text-slate-400">Tap to open camera</span>
-                      </button>
+                      <div className="flex flex-col gap-1.5">
+                        <button
+                          type="button"
+                          className="h-24 rounded-xl border-2 border-dashed border-emerald-400 hover:border-emerald-600 bg-emerald-50/60 hover:bg-emerald-100/60 flex flex-col items-center justify-center gap-1 transition cursor-pointer p-2 text-center shadow-xs group"
+                          onClick={() => frontInputRef.current?.click()}
+                          title="Open Camera to capture front face"
+                        >
+                          <Camera size={24} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                          <span className="text-xs font-bold text-slate-900">Snap Front (Camera)</span>
+                          <span className="text-[10px] text-emerald-700 font-semibold">Tap to launch camera</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[11px] font-medium text-slate-500 hover:text-slate-800 text-center py-0.5 underline cursor-pointer"
+                          onClick={() => frontGalleryInputRef.current?.click()}
+                        >
+                          or pick from gallery
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -519,15 +546,25 @@ export const RapidStockEntryModal: React.FC<RapidStockEntryModalProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        className="h-28 rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50 bg-slate-50 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer p-2 text-center"
-                        onClick={() => backInputRef.current?.click()}
-                      >
-                        <Camera size={26} className="text-emerald-600" />
-                        <span className="text-xs font-bold text-slate-800">Snap Back</span>
-                        <span className="text-[10px] text-slate-400">Tap to open camera</span>
-                      </button>
+                      <div className="flex flex-col gap-1.5">
+                        <button
+                          type="button"
+                          className="h-24 rounded-xl border-2 border-dashed border-emerald-400 hover:border-emerald-600 bg-emerald-50/60 hover:bg-emerald-100/60 flex flex-col items-center justify-center gap-1 transition cursor-pointer p-2 text-center shadow-xs group"
+                          onClick={() => backInputRef.current?.click()}
+                          title="Open Camera to capture back face"
+                        >
+                          <Camera size={24} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                          <span className="text-xs font-bold text-slate-900">Snap Back (Camera)</span>
+                          <span className="text-[10px] text-emerald-700 font-semibold">Tap to launch camera</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[11px] font-medium text-slate-500 hover:text-slate-800 text-center py-0.5 underline cursor-pointer"
+                          onClick={() => backGalleryInputRef.current?.click()}
+                        >
+                          or pick from gallery
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

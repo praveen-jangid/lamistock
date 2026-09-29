@@ -4,6 +4,7 @@ import {
   TreePine,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
   Zap
 } from 'lucide-react';
 
@@ -15,13 +16,19 @@ export interface TopbarProps {
   onToggleRightSidebar?: () => void;
   onOpenFirebaseSettings?: () => void;
   onToggleMobileSidebar?: () => void;
+  hasUpdate?: boolean;
+  onOpenUpdateModal?: () => void;
+  appVersion?: string;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
   isSidebarCollapsed,
   onToggleSidebarCollapse,
   isRightSidebarOpen,
-  onToggleRightSidebar
+  onToggleRightSidebar,
+  hasUpdate,
+  onOpenUpdateModal,
+  appVersion
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full h-16 bg-white/95 backdrop-blur border-b border-slate-200 transition-all">
@@ -50,17 +57,35 @@ export const Topbar: React.FC<TopbarProps> = ({
             <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-emerald-400 group-hover:bg-slate-800 transition shadow-xs flex-shrink-0">
               <TreePine size={19} />
             </div>
-            <div className="flex flex-col">
+            <div className="flex items-center gap-2">
               <span className="font-black text-slate-900 tracking-tight text-base sm:text-lg leading-tight">
                 LamiStock
               </span>
+              {appVersion && (
+                <span className="hidden sm:inline-block px-1.5 py-0.5 rounded-md bg-slate-100 text-[10px] font-mono font-semibold text-slate-500 border border-slate-200">
+                  v{appVersion}
+                </span>
+              )}
             </div>
           </Link>
 
         </div>
 
-        {/* Right: Cloud Sync & Quick Actions Toggle */}
+        {/* Right: Cloud Sync, Update Notification & Quick Actions Toggle */}
         <div className="flex items-center gap-2.5 flex-shrink-0">
+
+          {/* Update Available Banner Button */}
+          {hasUpdate && onOpenUpdateModal && (
+            <button
+              type="button"
+              onClick={onOpenUpdateModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white shadow-xs transition animate-pulse"
+              title="New update available! Click to update now."
+            >
+              <Sparkles size={14} className="text-amber-300" />
+              <span>Update Ready</span>
+            </button>
+          )}
 
           {/* Quick Actions Sidebar Toggle */}
           {onToggleRightSidebar && (

@@ -3,6 +3,7 @@ import { getFirestore, type Firestore, collection, doc, setDoc, deleteDoc, onSna
 import { getStorage, type FirebaseStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import type { LaminatedPanel } from '../types/panel';
 import type { Product } from '../types/product';
+import type { DeliveryChallan, FactoryOrder } from '../types/challan';
 
 let appInstance: FirebaseApp | null = null;
 let dbInstance: Firestore | null = null;
@@ -15,6 +16,10 @@ export const FIRESTORE_PANELS_COLLECTION = 'lamination_panels';
 export const FIREBASE_STORAGE_PANELS_PATH = 'lamination_panels';
 export const FIRESTORE_PRODUCTS_COLLECTION = 'products';
 export const FIREBASE_STORAGE_PRODUCTS_PATH = 'products';
+export const FIRESTORE_CHALLANS_COLLECTION = 'outward_challans';
+export const FIREBASE_STORAGE_CHALLANS_PATH = 'outward_challans';
+export const FIRESTORE_ORDERS_COLLECTION = 'factory_orders';
+export const FIRESTORE_CHALLANS_SETTINGS_COLLECTION = 'challan_settings';
 
 export interface FirebaseConfig {
   apiKey: string;
@@ -39,6 +44,7 @@ export const DEFAULT_FIREBASE_CONFIG: FirebaseConfig = {
 
 export function getSavedFirebaseConfig(): FirebaseConfig {
   try {
+    if (typeof localStorage === 'undefined') return DEFAULT_FIREBASE_CONFIG;
     let raw = localStorage.getItem(FIREBASE_CONFIG_STORAGE_KEY);
     if (!raw) {
       // Check legacy key if available and migrate seamlessly
@@ -129,7 +135,7 @@ export async function testFirestoreConnection(): Promise<{ success: boolean; mes
   }
 
   try {
-    const testDocRef = doc(dbInstance, FIRESTORE_PANELS_COLLECTION, '__connection_test__');
+    const testDocRef = doc(dbInstance, FIRESTORE_PANELS_COLLECTION, 'connection_test_ping');
     await setDoc(testDocRef, {
       test: true,
       timestamp: new Date().toISOString()
@@ -260,7 +266,7 @@ export async function fetchAllPanelsFromFirestore(): Promise<LaminatedPanel[]> {
   const panels: LaminatedPanel[] = [];
   querySnapshot.forEach((docSnap) => {
     // Exclude any internal test documents
-    if (docSnap.id !== '__connection_test__') {
+    if (docSnap.id !== 'connection_test_ping') {
       const data = docSnap.data();
       panels.push({
         id: docSnap.id,
@@ -289,7 +295,7 @@ export function subscribeToFirestorePanels(onUpdate: (panels: LaminatedPanel[]) 
     (snapshot) => {
       const panels: LaminatedPanel[] = [];
       snapshot.forEach((docSnap) => {
-        if (docSnap.id !== '__connection_test__') {
+        if (docSnap.id !== 'connection_test_ping') {
           const data = docSnap.data();
           panels.push({
             id: docSnap.id,
@@ -412,7 +418,7 @@ export async function fetchAllProductsFromFirestore(): Promise<Product[]> {
   const querySnapshot = await getDocs(collection(dbInstance, FIRESTORE_PRODUCTS_COLLECTION));
   const products: Product[] = [];
   querySnapshot.forEach((docSnap) => {
-    if (docSnap.id !== '__connection_test__') {
+    if (docSnap.id !== 'connection_test_ping') {
       const data = docSnap.data() as any;
       products.push({
         id: docSnap.id,
@@ -439,7 +445,7 @@ export function subscribeToFirestoreProducts(onUpdate: (products: Product[]) => 
     (snapshot) => {
       const products: Product[] = [];
       snapshot.forEach((docSnap) => {
-        if (docSnap.id !== '__connection_test__') {
+        if (docSnap.id !== 'connection_test_ping') {
           const data = docSnap.data() as any;
           products.push({
             id: docSnap.id,
@@ -462,4 +468,389 @@ export function subscribeToFirestoreProducts(onUpdate: (products: Product[]) => 
   );
   return unsubscribe;
 }
+
+// -------------------------------------------------------------
+// Outward Delivery Challans Cloud Operations
+// -------------------------------------------------------------
+
+/**
+ * Sanitizes delivery challan data before sending to Firestore, ensuring NO undefined values exist.
+ * Firestore will reject any document containing undefined properties.
+ */
+export function sanitizeChallanForFirestore(challan: DeliveryChallan): Record<string, any> {
+  const clean: Record<string, any> = {
+    id: String(challan.id),
+    challanNumber: String(challan.challanNumber || ''),
+    date: String(challan.date || ''),
+    time: String(challan.time || ''),
+    sourceUnit: String(challan.sourceUnit || ''),
+    destinationUnit: String(challan.destinationUnit || ''),
+    orderId: String(challan.orderId || ''),
+    orderTitle: String(challan.orderTitle || ''),
+    orderIds: Array.isArray(challan.orderIds)
+      ? challan.orderIds.map(String)
+      : [String(challan.orderId || '')],
+    orderTitles: Array.isArray(challan.orderTitles)
+      ? challan.orderTitles.map(String)
+      : [String(challan.orderTitle || '')],
+    items: (challan.items || []).map((item) => {
+      const it: Record<string, any> = {
+        id: String(item.id),
+        orderId: String(item.orderId || ''),
+        orderTitle: String(item.orderTitle || ''),
+        productCode: String(item.productCode || ''),
+        productName: String(item.productName || ''),
+        salesOrderNo: String(item.salesOrderNo || ''),
+        category: String(item.category || 'LAMINATION'),
+        partName: String(item.partName || ''),
+        dimensions: String(item.dimensions || ''),
+        totalOrderQty: Number(item.totalOrderQty) || 0,
+        alreadyDispatchedQty: Number(item.alreadyDispatchedQty) || 0,
+        dispatchingNowQty: Number(item.dispatchingNowQty) || 0,
+        woodType: String(item.woodType || ''),
+        remarks: String(item.remarks || ''),
+        palletNumber: Number(item.palletNumber) || 1,
+        isSplitPart: Boolean(item.isSplitPart),
+        isCustomItem: Boolean(item.isCustomItem)
+      };
+      if (item.baseItemId) it.baseItemId = String(item.baseItemId);
+      if (item.customerName) it.customerName = String(item.customerName);
+      if (item.splitDetails) {
+        it.splitDetails = {
+          p1: Number(item.splitDetails.p1) || 0,
+          p2: Number(item.splitDetails.p2) || 0,
+          total: Number(item.splitDetails.total) || 0,
+          ...(item.splitDetails.originalTotalQty !== undefined
+            ? { originalTotalQty: Number(item.splitDetails.originalTotalQty) }
+            : {})
+        };
+      }
+      return it;
+    }),
+    pallets: (challan.pallets || []).map((p) => ({
+      id: Number(p.id) || 1,
+      name: String(p.name || ''),
+      label: String(p.label || ''),
+      notes: String(p.notes || '')
+    })),
+    palletCount: Number(challan.palletCount) || (challan.pallets ? challan.pallets.length : 1),
+    palletPhotos: Array.isArray(challan.palletPhotos) ? challan.palletPhotos : [],
+    driverName: String(challan.driverName || ''),
+    vehicleNumber: String(challan.vehicleNumber || ''),
+    notes: String(challan.notes || ''),
+    status: String(challan.status || 'DISPATCHED'),
+    createdAt: challan.createdAt || new Date().toISOString(),
+    updatedAt: challan.updatedAt || new Date().toISOString()
+  };
+
+  // Strip any remaining undefined keys
+  Object.keys(clean).forEach((k) => {
+    if (clean[k] === undefined) {
+      delete clean[k];
+    }
+  });
+
+  return clean;
+}
+
+export async function syncChallanToFirestore(challan: DeliveryChallan): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance) return;
+  const cleanChallan = sanitizeChallanForFirestore(challan);
+  const challanRef = doc(dbInstance, FIRESTORE_CHALLANS_COLLECTION, cleanChallan.id);
+  await setDoc(challanRef, cleanChallan, { merge: true });
+}
+
+export async function batchSyncChallansToFirestore(challans: DeliveryChallan[]): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance || challans.length === 0) return;
+  const CHUNK_SIZE = 450;
+  for (let i = 0; i < challans.length; i += CHUNK_SIZE) {
+    const chunk = challans.slice(i, i + CHUNK_SIZE);
+    const batch = writeBatch(dbInstance);
+    for (const ch of chunk) {
+      const clean = sanitizeChallanForFirestore(ch);
+      const ref = doc(dbInstance, FIRESTORE_CHALLANS_COLLECTION, clean.id);
+      batch.set(ref, clean, { merge: true });
+    }
+    await batch.commit();
+  }
+}
+
+export async function deleteChallanFromFirestore(challanId: string): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance) return;
+  const challanRef = doc(dbInstance, FIRESTORE_CHALLANS_COLLECTION, challanId);
+  await deleteDoc(challanRef);
+}
+
+export async function fetchAllChallansFromFirestore(): Promise<DeliveryChallan[]> {
+  if (!isFirebaseReady() || !dbInstance) return [];
+  const querySnapshot = await getDocs(collection(dbInstance, FIRESTORE_CHALLANS_COLLECTION));
+  const challans: DeliveryChallan[] = [];
+  querySnapshot.forEach((docSnap) => {
+    if (docSnap.id !== 'connection_test_ping') {
+      const data = docSnap.data() as any;
+      challans.push({
+        id: docSnap.id,
+        challanNumber: data.challanNumber || '',
+        date: data.date || '',
+        time: data.time || '',
+        sourceUnit: data.sourceUnit || '',
+        destinationUnit: data.destinationUnit || '',
+        orderId: data.orderId || '',
+        orderTitle: data.orderTitle || '',
+        orderIds: Array.isArray(data.orderIds) ? data.orderIds : [data.orderId || ''],
+        orderTitles: Array.isArray(data.orderTitles) ? data.orderTitles : [data.orderTitle || ''],
+        items: Array.isArray(data.items) ? data.items : [],
+        pallets: Array.isArray(data.pallets) ? data.pallets : [],
+        palletCount: Number(data.palletCount) || 1,
+        palletPhotos: Array.isArray(data.palletPhotos) ? data.palletPhotos : [],
+        driverName: data.driverName || '',
+        vehicleNumber: data.vehicleNumber || '',
+        notes: data.notes || '',
+        status: data.status || 'DISPATCHED',
+        createdAt: data.createdAt || new Date().toISOString(),
+        updatedAt: data.updatedAt || new Date().toISOString()
+      });
+    }
+  });
+  // Sort descending by date/createdAt
+  challans.sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
+  return challans;
+}
+
+export function subscribeToFirestoreChallans(onUpdate: (challans: DeliveryChallan[]) => void): () => void {
+  if (!isFirebaseReady() || !dbInstance) {
+    return () => {};
+  }
+  const unsubscribe = onSnapshot(
+    collection(dbInstance, FIRESTORE_CHALLANS_COLLECTION),
+    (snapshot) => {
+      const challans: DeliveryChallan[] = [];
+      snapshot.forEach((docSnap) => {
+        if (docSnap.id !== 'connection_test_ping') {
+          const data = docSnap.data() as any;
+          challans.push({
+            id: docSnap.id,
+            challanNumber: data.challanNumber || '',
+            date: data.date || '',
+            time: data.time || '',
+            sourceUnit: data.sourceUnit || '',
+            destinationUnit: data.destinationUnit || '',
+            orderId: data.orderId || '',
+            orderTitle: data.orderTitle || '',
+            orderIds: Array.isArray(data.orderIds) ? data.orderIds : [data.orderId || ''],
+            orderTitles: Array.isArray(data.orderTitles) ? data.orderTitles : [data.orderTitle || ''],
+            items: Array.isArray(data.items) ? data.items : [],
+            pallets: Array.isArray(data.pallets) ? data.pallets : [],
+            palletCount: Number(data.palletCount) || 1,
+            palletPhotos: Array.isArray(data.palletPhotos) ? data.palletPhotos : [],
+            driverName: data.driverName || '',
+            vehicleNumber: data.vehicleNumber || '',
+            notes: data.notes || '',
+            status: data.status || 'DISPATCHED',
+            createdAt: data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString()
+          });
+        }
+      });
+      challans.sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
+      onUpdate(challans);
+    },
+    (error) => {
+      console.error('Firestore challans subscription error:', error);
+    }
+  );
+  return unsubscribe;
+}
+
+// -------------------------------------------------------------
+// Factory Orders Cloud Operations
+// -------------------------------------------------------------
+
+export function sanitizeOrderForFirestore(order: FactoryOrder): Record<string, any> {
+  const clean: Record<string, any> = {
+    id: String(order.id),
+    orderNumber: String(order.orderNumber || ''),
+    salesOrderNo: String(order.salesOrderNo || order.orderNumber || ''),
+    productId: String(order.productId || ''),
+    productName: String(order.productName || ''),
+    productCode: String(order.productCode || ''),
+    customerName: String(order.customerName || ''),
+    productImage: String(order.productImage || ''),
+    quantity: Number(order.quantity) || 0,
+    title: String(order.title || ''),
+    date: String(order.date || ''),
+    notes: String(order.notes || ''),
+    status: String(order.status || 'PENDING'),
+    laminationItems: (order.laminationItems || []).map((lam) => ({
+      id: String(lam.id),
+      partName: String(lam.partName || ''),
+      length: Number(lam.length) || 0,
+      width: Number(lam.width) || 0,
+      thickness: Number(lam.thickness) || 0,
+      quantityNeeded: Number(lam.quantityNeeded) || 0,
+      woodType: String(lam.woodType || ''),
+      remarks: String(lam.remarks || '')
+    })),
+    frameItems: (order.frameItems || []).map((frm) => ({
+      id: String(frm.id),
+      partName: String(frm.partName || ''),
+      size: String(frm.size || ''),
+      quantity: Number(frm.quantity) || 0,
+      woodType: String(frm.woodType || ''),
+      remarks: String(frm.remarks || '')
+    }))
+  };
+
+  Object.keys(clean).forEach((k) => {
+    if (clean[k] === undefined) {
+      delete clean[k];
+    }
+  });
+
+  return clean;
+}
+
+export async function syncOrderToFirestore(order: FactoryOrder): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance) return;
+  const cleanOrder = sanitizeOrderForFirestore(order);
+  const orderRef = doc(dbInstance, FIRESTORE_ORDERS_COLLECTION, cleanOrder.id);
+  await setDoc(orderRef, cleanOrder, { merge: true });
+}
+
+export async function batchSyncOrdersToFirestore(orders: FactoryOrder[]): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance || orders.length === 0) return;
+  const CHUNK_SIZE = 450;
+  for (let i = 0; i < orders.length; i += CHUNK_SIZE) {
+    const chunk = orders.slice(i, i + CHUNK_SIZE);
+    const batch = writeBatch(dbInstance);
+    for (const ord of chunk) {
+      const clean = sanitizeOrderForFirestore(ord);
+      const ref = doc(dbInstance, FIRESTORE_ORDERS_COLLECTION, clean.id);
+      batch.set(ref, clean, { merge: true });
+    }
+    await batch.commit();
+  }
+}
+
+export async function deleteOrderFromFirestore(orderId: string): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance) return;
+  const orderRef = doc(dbInstance, FIRESTORE_ORDERS_COLLECTION, orderId);
+  await deleteDoc(orderRef);
+}
+
+export async function fetchAllOrdersFromFirestore(): Promise<FactoryOrder[]> {
+  if (!isFirebaseReady() || !dbInstance) return [];
+  const querySnapshot = await getDocs(collection(dbInstance, FIRESTORE_ORDERS_COLLECTION));
+  const orders: FactoryOrder[] = [];
+  querySnapshot.forEach((docSnap) => {
+    if (docSnap.id !== 'connection_test_ping') {
+      const data = docSnap.data() as any;
+      orders.push({
+        id: docSnap.id,
+        orderNumber: data.orderNumber || '',
+        salesOrderNo: data.salesOrderNo || '',
+        productId: data.productId || '',
+        productName: data.productName || '',
+        productCode: data.productCode || '',
+        customerName: data.customerName || '',
+        productImage: data.productImage || '',
+        quantity: Number(data.quantity) || 0,
+        title: data.title || '',
+        date: data.date || '',
+        notes: data.notes || '',
+        status: data.status || 'PENDING',
+        laminationItems: Array.isArray(data.laminationItems) ? data.laminationItems : [],
+        frameItems: Array.isArray(data.frameItems) ? data.frameItems : []
+      });
+    }
+  });
+  return orders;
+}
+
+export function subscribeToFirestoreOrders(onUpdate: (orders: FactoryOrder[]) => void): () => void {
+  if (!isFirebaseReady() || !dbInstance) {
+    return () => {};
+  }
+  const unsubscribe = onSnapshot(
+    collection(dbInstance, FIRESTORE_ORDERS_COLLECTION),
+    (snapshot) => {
+      const orders: FactoryOrder[] = [];
+      snapshot.forEach((docSnap) => {
+        if (docSnap.id !== 'connection_test_ping') {
+          const data = docSnap.data() as any;
+          orders.push({
+            id: docSnap.id,
+            orderNumber: data.orderNumber || '',
+            salesOrderNo: data.salesOrderNo || '',
+            productId: data.productId || '',
+            productName: data.productName || '',
+            productCode: data.productCode || '',
+            customerName: data.customerName || '',
+            productImage: data.productImage || '',
+            quantity: Number(data.quantity) || 0,
+            title: data.title || '',
+            date: data.date || '',
+            notes: data.notes || '',
+            status: data.status || 'PENDING',
+            laminationItems: Array.isArray(data.laminationItems) ? data.laminationItems : [],
+            frameItems: Array.isArray(data.frameItems) ? data.frameItems : []
+          });
+        }
+      });
+      onUpdate(orders);
+    },
+    (error) => {
+      console.error('Firestore orders subscription error:', error);
+    }
+  );
+  return unsubscribe;
+}
+
+// -------------------------------------------------------------
+// Manual Sent Adjustments Cloud Operations
+// -------------------------------------------------------------
+
+export async function syncManualAdjustmentsToFirestore(adjustments: Record<string, number>): Promise<void> {
+  if (!isFirebaseReady() || !dbInstance) return;
+  const docRef = doc(dbInstance, FIRESTORE_CHALLANS_SETTINGS_COLLECTION, 'manual_sent_adjustments');
+  await setDoc(docRef, { adjustments: adjustments || {}, updatedAt: new Date().toISOString() }, { merge: true });
+}
+
+export async function fetchManualAdjustmentsFromFirestore(): Promise<Record<string, number> | null> {
+  if (!isFirebaseReady() || !dbInstance) return null;
+  const querySnapshot = await getDocs(collection(dbInstance, FIRESTORE_CHALLANS_SETTINGS_COLLECTION));
+  let result: Record<string, number> | null = null;
+  querySnapshot.forEach((docSnap) => {
+    if (docSnap.id === 'manual_sent_adjustments') {
+      result = docSnap.data().adjustments || {};
+    }
+  });
+  return result;
+}
+
+export function subscribeToFirestoreManualAdjustments(
+  onUpdate: (adjustments: Record<string, number>) => void
+): () => void {
+  if (!isFirebaseReady() || !dbInstance) {
+    return () => {};
+  }
+  const unsubscribe = onSnapshot(
+    collection(dbInstance, FIRESTORE_CHALLANS_SETTINGS_COLLECTION),
+    (snapshot) => {
+      snapshot.forEach((docSnap) => {
+        if (docSnap.id === 'manual_sent_adjustments') {
+          const data = docSnap.data();
+          if (data && data.adjustments) {
+            onUpdate(data.adjustments);
+          }
+        }
+      });
+    },
+    (error) => {
+      console.error('Firestore manual adjustments subscription error:', error);
+    }
+  );
+  return unsubscribe;
+}
+
 

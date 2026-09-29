@@ -242,6 +242,11 @@ export const PalletManager: React.FC<PalletManagerProps> = ({
                             <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-mono font-black text-slate-900 text-xs">
                               {it.dispatchingNowQty} pcs
                             </span>
+                            {!isSplit && it.totalOrderQty > 0 && it.dispatchingNowQty > it.totalOrderQty && (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px]">
+                                +{it.dispatchingNowQty - it.totalOrderQty} extra
+                              </span>
+                            )}
 
                             {isSplit ? (
                               <div className="flex items-center gap-1">

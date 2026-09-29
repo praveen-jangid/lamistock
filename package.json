@@ -1,18 +1,25 @@
 {
   "name": "lamination",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "version:bump": "node scripts/bump_version.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",
     "@capacitor/cli": "^8.5.1",
     "@capacitor/core": "^8.5.1",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.13.0",
     "dexie": "^4.4.5",
     "file-saver": "^2.0.5",
     "firebase": "^12.18.0",
@@ -24,6 +31,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",

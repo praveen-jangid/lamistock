@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSavedOrders, addOrUpdateOrder, deleteOrder } from '../services/challan_db';
+import { getSavedOrders, addOrUpdateOrder, deleteOrder, setupOrdersRealtimeSync } from '../services/challan_db';
+import { isFirebaseReady } from '../services/firebase';
 import type { FactoryOrder } from '../types/challan';
 import type { Product } from '../types/product';
 import type { BulkOrderItem } from '../types/panel';
@@ -17,7 +18,8 @@ import {
   Package,
   Eye,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Cloud
 } from 'lucide-react';
 
 interface OrdersManagerViewProps {
@@ -33,6 +35,16 @@ export const OrdersManagerView: React.FC<OrdersManagerViewProps> = ({
 }) => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<FactoryOrder[]>(() => getSavedOrders());
+
+  // Subscribe to realtime orders updates across tabs/cloud
+  useEffect(() => {
+    const unsub = setupOrdersRealtimeSync((updatedOrders) => {
+      setOrders(updatedOrders);
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
 
   // Search filter for table
   const [tableSearchQuery, setTableSearchQuery] = useState('');
@@ -78,7 +90,7 @@ export const OrdersManagerView: React.FC<OrdersManagerViewProps> = ({
   };
 
   // Add Order Handler
-  const handleAddOrder = (e: React.FormEvent) => {
+  const handleAddOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedProductId) {
@@ -141,7 +153,7 @@ export const OrdersManagerView: React.FC<OrdersManagerViewProps> = ({
       frameItems
     };
 
-    addOrUpdateOrder(newOrder);
+    await addOrUpdateOrder(newOrder);
     refreshOrders();
 
     // Reset inputs
@@ -150,9 +162,9 @@ export const OrdersManagerView: React.FC<OrdersManagerViewProps> = ({
     setFormError('');
   };
 
-  const handleDelete = (orderId: string, orderTitle: string) => {
+  const handleDelete = async (orderId: string, orderTitle: string) => {
     if (window.confirm(`Are you sure you want to delete order "${orderTitle}"?`)) {
-      deleteOrder(orderId);
+      await deleteOrder(orderId);
       refreshOrders();
       setActiveMenuOrderId(null);
     }
@@ -188,13 +200,33 @@ export const OrdersManagerView: React.FC<OrdersManagerViewProps> = ({
           <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
             <Plus size={16} />
           </div>
-          <div>
-            <h3 className="font-extrabold text-slate-900 text-sm sm:text-base m-0">
-              Create New Production Order
-            </h3>
-            <p className="text-xs text-slate-500 m-0">
-              Select product from catalog to auto-fill customer and cutting specs, then enter sales order number and quantity.
-            </p>
+          <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-slate-900 text-sm sm:text-base m-0">
+                  Create New Production Order
+                </h3>
+                {isFirebaseReady() ? (
+                  <span
+                    title="Orders are synced with Firebase Firestore database"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  >
+                    <Cloud size={11} className="text-emerald-600" />
+                    <span>Cloud Synced</span>
+                  </span>
+                ) : (
+                  <span
+                    title="Running offline in local storage"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+                  >
+                    <span>Local Only</span>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 m-0">
+                Select product from catalog to auto-fill customer and cutting specs, then enter sales order number and quantity.
+              </p>
+            </div>
           </div>
         </div>
 

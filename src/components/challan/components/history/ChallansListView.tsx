@@ -1,6 +1,7 @@
 import React from 'react';
-import { Truck, Plus, Search, FileText, Eye, Trash2 } from 'lucide-react';
+import { Truck, Plus, Search, FileText, Eye, Trash2, Cloud } from 'lucide-react';
 import type { DeliveryChallan } from '../../../../types/challan';
+import { isFirebaseReady } from '../../../../services/firebase';
 
 interface ChallansListViewProps {
   filteredChallans: DeliveryChallan[];
@@ -19,6 +20,8 @@ export const ChallansListView: React.FC<ChallansListViewProps> = ({
   onViewChallan,
   onDeleteChallan,
 }) => {
+  const isCloudConnected = isFirebaseReady();
+
   return (
     <div className="space-y-6">
       {/* Top Header Section */}
@@ -28,9 +31,27 @@ export const ChallansListView: React.FC<ChallansListViewProps> = ({
             <Truck size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold tracking-tight text-slate-900 m-0">
-              Outward Delivery Challans
-            </h2>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-xl font-extrabold tracking-tight text-slate-900 m-0">
+                Outward Delivery Challans
+              </h2>
+              {isCloudConnected ? (
+                <span
+                  title="All outward challans are synced with Firebase Firestore database"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                >
+                  <Cloud size={12} className="text-emerald-600" />
+                  <span>Cloud Synced</span>
+                </span>
+              ) : (
+                <span
+                  title="Running offline in local storage"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+                >
+                  <span>Local Only</span>
+                </span>
+              )}
+            </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               All dispatched vouchers and component transfers from Unit 2 (Lamination) to Unit 1 (Assembly).
             </p>

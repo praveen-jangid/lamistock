@@ -1,7 +1,47 @@
 import type { DeliveryChallan, FactoryOrder, ChallanComponentItem } from '../types/challan';
+import {
+  isFirebaseReady,
+  syncChallanToFirestore,
+  deleteChallanFromFirestore,
+  fetchAllChallansFromFirestore,
+  subscribeToFirestoreChallans,
+  syncOrderToFirestore,
+  deleteOrderFromFirestore,
+  fetchAllOrdersFromFirestore,
+  subscribeToFirestoreOrders,
+  syncManualAdjustmentsToFirestore,
+  fetchManualAdjustmentsFromFirestore
+} from './firebase';
 
 const CHALLANS_STORAGE_KEY = 'lamistock_outward_challans';
 const ORDERS_STORAGE_KEY = 'lamistock_factory_orders';
+
+// In-memory listener system to keep active UI views synchronized across components & tabs
+type ChallansListener = (challans: DeliveryChallan[]) => void;
+type OrdersListener = (orders: FactoryOrder[]) => void;
+
+const challanListeners = new Set<ChallansListener>();
+const orderListeners = new Set<OrdersListener>();
+
+function notifyChallanListeners(challans: DeliveryChallan[]) {
+  challanListeners.forEach((fn) => {
+    try {
+      fn(challans);
+    } catch (e) {
+      console.error('Error in challan listener:', e);
+    }
+  });
+}
+
+function notifyOrderListeners(orders: FactoryOrder[]) {
+  orderListeners.forEach((fn) => {
+    try {
+      fn(orders);
+    } catch (e) {
+      console.error('Error in order listener:', e);
+    }
+  });
+}
 
 // Initial pre-loaded orders based on user factory sales orders
 export const INITIAL_ORDERS: FactoryOrder[] = [
@@ -196,7 +236,7 @@ export function saveOrders(orders: FactoryOrder[]): void {
   }
 }
 
-export function addOrUpdateOrder(order: FactoryOrder): void {
+export async function addOrUpdateOrder(order: FactoryOrder): Promise<void> {
   const existing = getSavedOrders();
   const index = existing.findIndex((o) => o.id === order.id);
   if (index >= 0) {
@@ -205,11 +245,29 @@ export function addOrUpdateOrder(order: FactoryOrder): void {
     existing.unshift(order);
   }
   saveOrders(existing);
+  notifyOrderListeners(existing);
+
+  if (isFirebaseReady()) {
+    try {
+      await syncOrderToFirestore(order);
+    } catch (e) {
+      console.error('Failed syncing order to Firestore:', e);
+    }
+  }
 }
 
-export function deleteOrder(orderId: string): void {
+export async function deleteOrder(orderId: string): Promise<void> {
   const existing = getSavedOrders().filter((o) => o.id !== orderId);
   saveOrders(existing);
+  notifyOrderListeners(existing);
+
+  if (isFirebaseReady()) {
+    try {
+      await deleteOrderFromFirestore(orderId);
+    } catch (e) {
+      console.error('Failed deleting order from Firestore:', e);
+    }
+  }
 }
 
 export const INITIAL_CHALLANS: DeliveryChallan[] = [
@@ -287,6 +345,76 @@ export const INITIAL_CHALLANS: DeliveryChallan[] = [
   }
 ];
 
+/**
+ * Initializes challans, orders, and manual adjustments from Firestore and local cache.
+ * Auto-migrates local challans up to Firestore if Firestore is currently empty so no data is lost!
+ */
+export async function initializeChallansDatabase(): Promise<{
+  challans: DeliveryChallan[];
+  orders: FactoryOrder[];
+}> {
+  let challans = getAllChallans();
+  let orders = getSavedOrders();
+
+  if (isFirebaseReady()) {
+    try {
+      // 1. Outward Challans
+      const remoteChallans = await fetchAllChallansFromFirestore();
+      if (remoteChallans.length > 0) {
+        // Cloud has records - update local cache
+        localStorage.setItem(CHALLANS_STORAGE_KEY, JSON.stringify(remoteChallans));
+        challans = remoteChallans;
+      } else if (challans.length > 0) {
+        // Auto-migrate any local challans up to Firestore
+        console.log(`Auto-migrating ${challans.length} local challan(s) up to Firestore...`);
+        for (const ch of challans) {
+          try {
+            await syncChallanToFirestore(ch);
+          } catch (err) {
+            console.warn('Failed auto-syncing challan to Firestore:', err);
+          }
+        }
+      }
+
+      // 2. Factory Orders
+      const remoteOrders = await fetchAllOrdersFromFirestore();
+      if (remoteOrders.length > 0) {
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(remoteOrders));
+        orders = remoteOrders;
+      } else if (orders.length > 0) {
+        console.log(`Auto-migrating ${orders.length} local order(s) up to Firestore...`);
+        for (const ord of orders) {
+          try {
+            await syncOrderToFirestore(ord);
+          } catch (err) {
+            console.warn('Failed auto-syncing order to Firestore:', err);
+          }
+        }
+      }
+
+      // 3. Manual Sent Adjustments
+      const remoteAdj = await fetchManualAdjustmentsFromFirestore();
+      if (remoteAdj && Object.keys(remoteAdj).length > 0) {
+        const localAdj = getManualSentAdjustments();
+        const merged = { ...localAdj, ...remoteAdj };
+        localStorage.setItem(MANUAL_SENT_STORAGE_KEY, JSON.stringify(merged));
+      } else {
+        const localAdj = getManualSentAdjustments();
+        if (Object.keys(localAdj).length > 0) {
+          await syncManualAdjustmentsToFirestore(localAdj);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not sync challans with Firestore:', e);
+    }
+  }
+
+  notifyChallanListeners(challans);
+  notifyOrderListeners(orders);
+
+  return { challans, orders };
+}
+
 export function getAllChallans(): DeliveryChallan[] {
   try {
     const raw = localStorage.getItem(CHALLANS_STORAGE_KEY);
@@ -308,16 +436,27 @@ export function getAllChallans(): DeliveryChallan[] {
   return INITIAL_CHALLANS;
 }
 
-export function deleteChallan(challanId: string): void {
+export async function deleteChallan(challanId: string): Promise<void> {
   const existing = getAllChallans().filter((c) => c.id !== challanId);
   try {
     localStorage.setItem(CHALLANS_STORAGE_KEY, JSON.stringify(existing));
   } catch (e) {
     console.error('Error deleting challan:', e);
   }
+
+  notifyChallanListeners(existing);
+
+  if (isFirebaseReady()) {
+    try {
+      await deleteChallanFromFirestore(challanId);
+      console.log('Successfully deleted challan from Firestore:', challanId);
+    } catch (e) {
+      console.error('Failed deleting challan from Firestore:', e);
+    }
+  }
 }
 
-export function saveChallan(challan: DeliveryChallan): void {
+export async function saveChallan(challan: DeliveryChallan): Promise<void> {
   const existing = getAllChallans();
   const index = existing.findIndex((c) => c.id === challan.id);
   if (index >= 0) {
@@ -330,6 +469,57 @@ export function saveChallan(challan: DeliveryChallan): void {
   } catch (e) {
     console.error('Error saving challan:', e);
   }
+
+  notifyChallanListeners(existing);
+
+  if (isFirebaseReady()) {
+    try {
+      await syncChallanToFirestore(challan);
+      console.log('Successfully synced outward challan to Firestore:', challan.id, challan.challanNumber);
+    } catch (e) {
+      console.error('Failed syncing outward challan to Firestore:', e);
+    }
+  }
+}
+
+export function setupChallansRealtimeSync(onUpdate: (challans: DeliveryChallan[]) => void): () => void {
+  challanListeners.add(onUpdate);
+
+  const unsubRemote = subscribeToFirestoreChallans((remoteChallans) => {
+    if (remoteChallans && remoteChallans.length > 0) {
+      try {
+        localStorage.setItem(CHALLANS_STORAGE_KEY, JSON.stringify(remoteChallans));
+      } catch (e) {
+        console.error('Error caching remote challans:', e);
+      }
+      notifyChallanListeners(remoteChallans);
+    }
+  });
+
+  return () => {
+    challanListeners.delete(onUpdate);
+    unsubRemote();
+  };
+}
+
+export function setupOrdersRealtimeSync(onUpdate: (orders: FactoryOrder[]) => void): () => void {
+  orderListeners.add(onUpdate);
+
+  const unsubRemote = subscribeToFirestoreOrders((remoteOrders) => {
+    if (remoteOrders && remoteOrders.length > 0) {
+      try {
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(remoteOrders));
+      } catch (e) {
+        console.error('Error caching remote orders:', e);
+      }
+      notifyOrderListeners(remoteOrders);
+    }
+  });
+
+  return () => {
+    orderListeners.delete(onUpdate);
+    unsubRemote();
+  };
 }
 
 const MANUAL_SENT_STORAGE_KEY = 'lamistock_manual_sent_adjustments';
@@ -354,6 +544,12 @@ export function setManualSentQuantity(componentId: string, totalSent: number): v
   } catch (e) {
     console.error('Error saving manual sent adjustment:', e);
   }
+
+  if (isFirebaseReady()) {
+    syncManualAdjustmentsToFirestore(current).catch((err) => {
+      console.warn('Failed syncing manual sent adjustment to Firestore:', err);
+    });
+  }
 }
 
 export function markComponentAsSent(componentId: string, additionalQuantity: number): void {
@@ -364,6 +560,12 @@ export function markComponentAsSent(componentId: string, additionalQuantity: num
     localStorage.setItem(MANUAL_SENT_STORAGE_KEY, JSON.stringify(current));
   } catch (e) {
     console.error('Error saving manual sent adjustment:', e);
+  }
+
+  if (isFirebaseReady()) {
+    syncManualAdjustmentsToFirestore(current).catch((err) => {
+      console.warn('Failed syncing manual sent adjustment to Firestore:', err);
+    });
   }
 }
 

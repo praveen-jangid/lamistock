@@ -1,6 +1,7 @@
 import React from 'react';
 import type { PalletConfig, ChallanComponentItem, FactoryOrder } from '../../../../types/challan';
 import { PalletSlipCard } from '../print/PalletSlipCard';
+import { calculatePalletSlipAllocations } from '../../utils/palletHeightCalculator';
 import { getProductForOrder } from '../../utils/productHelpers';
 import { getStoredProductsSync } from '../../../../services/product_db';
 import {
@@ -51,6 +52,14 @@ export const ChallanStep2: React.FC<ChallanStep2Props> = ({
   onSaveChallan
 }) => {
   const products = getStoredProductsSync();
+
+  const p1ItemCount = dispatchedItems.filter((it) => (it.palletNumber || 1) === 1).length;
+  const p2ItemCount = dispatchedItems.filter((it) => (it.palletNumber || 1) === 2).length;
+  const allocations = calculatePalletSlipAllocations(
+    p1ItemCount,
+    p2ItemCount,
+    pallets.length > 1
+  );
 
   return (
     <div className="space-y-5">
@@ -126,6 +135,8 @@ export const ChallanStep2: React.FC<ChallanStep2Props> = ({
             driverName={driverName}
             remarks={remarks}
             orders={selectedOrders}
+            allocatedHeightMm={allocations.p1.heightMm}
+            density={allocations.p1.density}
           />
 
           {pallets.length > 1 ? (
@@ -146,6 +157,8 @@ export const ChallanStep2: React.FC<ChallanStep2Props> = ({
                 driverName={driverName}
                 remarks={remarks}
                 orders={selectedOrders}
+                allocatedHeightMm={allocations.p2.heightMm}
+                density={allocations.p2.density}
               />
             </>
           ) : (
@@ -256,34 +269,69 @@ export const ChallanStep2: React.FC<ChallanStep2Props> = ({
                 </span>
               </div>
 
-              <table className="w-full text-xs text-left border border-slate-300">
+              <table className="w-full table-fixed text-xs text-left border border-slate-300">
                 <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
                   <tr>
-                    <th className="p-2 w-10 text-center border-r border-slate-300">#</th>
-                    <th className="p-2 w-44 border-r border-slate-300">Product</th>
-                    <th className="p-2 w-32 border-r border-slate-300">Remarks</th>
-                    <th className="p-2 border-r border-slate-300">Component Description</th>
-                    <th className="p-2 w-44 border-r border-slate-300">Size</th>
-                    <th className="p-2 w-20 text-center">Qty</th>
+                    <th className="p-1.5 w-[4%] text-center border-r border-slate-300">#</th>
+                    <th className="p-1.5 w-[25%] border-r border-slate-300">Product</th>
+                    <th className="p-1.5 w-[35%] border-r border-slate-300">Component Description & Size</th>
+                    <th className="p-1 w-[10%] text-center border-r border-slate-300">
+                      <div className="leading-tight">Ordered<br />Qty</div>
+                    </th>
+                    <th className="p-1 w-[10%] text-center border-r border-slate-300">
+                      <div className="leading-tight">Sent<br />Qty</div>
+                    </th>
+                    <th className="p-1 w-[10%] text-center border-r border-slate-300">
+                      <div className="leading-tight">Pending<br />Qty</div>
+                    </th>
+                    <th className="p-1 w-[6%] text-center">Remarks</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {laminationDispatched.map((it, idx) => (
-                    <tr key={it.id || idx}>
-                      <td className="p-2 text-center text-slate-700 font-mono border-r border-slate-200">
-                        {idx + 1}
-                      </td>
-                      <td className="p-2 font-bold text-slate-800 border-r border-slate-200 text-[11px]">
-                        {it.productCode ? `${it.productCode} — ` : ''}{it.productName || it.orderTitle}
-                      </td>
-                      <td className="p-2 text-slate-700 border-r border-slate-200">{it.remarks || '—'}</td>
-                      <td className="p-2 font-bold text-slate-900 border-r border-slate-200">{it.partName}</td>
-                      <td className="p-2 font-mono text-slate-800 border-r border-slate-200">{it.dimensions}</td>
-                      <td className="p-2 font-mono font-bold text-center text-slate-900">
-                        {it.dispatchingNowQty} pcs
-                      </td>
-                    </tr>
-                  ))}
+                  {laminationDispatched.map((it, idx) => {
+                    const isExtra = it.totalOrderQty > 0 && it.dispatchingNowQty > it.totalOrderQty;
+                    const extraDiff = it.dispatchingNowQty - it.totalOrderQty;
+                    const isSplit = !!it.isSplitPart && !!it.splitDetails;
+                    const totalSentThisChallan = isSplit && it.splitDetails ? it.splitDetails.total : it.dispatchingNowQty;
+                    const alreadySent = it.alreadyDispatchedQty || 0;
+                    const pendingQty = Math.max(0, (it.totalOrderQty || 0) - (alreadySent + totalSentThisChallan));
+
+                    return (
+                      <tr key={it.id || idx}>
+                        <td className="p-2 text-center text-slate-700 font-mono border-r border-slate-200">
+                          {idx + 1}
+                        </td>
+                        <td className="p-2 font-bold text-slate-800 border-r border-slate-200 text-[11px]">
+                          <div className="break-words leading-tight">
+                            {it.productCode ? `${it.productCode} — ` : ''}{it.productName || it.orderTitle}
+                          </div>
+                        </td>
+                        <td className="p-2 font-bold text-slate-900 border-r border-slate-200">
+                          <div className="break-words leading-tight">{it.partName}</div>
+                          {it.dimensions && (
+                            <div className="text-[10px] font-mono text-slate-500 font-semibold mt-0.5 break-words leading-tight">
+                              Size: {it.dimensions}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2 font-mono font-bold text-center text-slate-700 border-r border-slate-200 text-[11px]">
+                          {it.totalOrderQty !== undefined ? `${it.totalOrderQty} pcs` : '—'}
+                        </td>
+                        <td className="p-2 font-mono font-bold text-center text-slate-900 border-r border-slate-200 text-[11px]">
+                          <div>{it.dispatchingNowQty} pcs</div>
+                          {isExtra && (
+                            <span className="block text-[9.5px] font-bold text-emerald-700 print:text-black leading-none mt-0.5">
+                              (+{extraDiff} extra)
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2 font-mono font-bold text-center text-slate-700 border-r border-slate-200 text-[11px]">
+                          {it.totalOrderQty !== undefined ? `${pendingQty} pcs` : '—'}
+                        </td>
+                        <td className="p-2 text-slate-700 text-center text-[10.5px] break-words leading-tight">{it.remarks || '—'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -302,34 +350,69 @@ export const ChallanStep2: React.FC<ChallanStep2Props> = ({
                 </span>
               </div>
 
-              <table className="w-full text-xs text-left border border-slate-300">
+              <table className="w-full table-fixed text-xs text-left border border-slate-300">
                 <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
                   <tr>
-                    <th className="p-2 w-10 text-center border-r border-slate-300">#</th>
-                    <th className="p-2 w-44 border-r border-slate-300">Product</th>
-                    <th className="p-2 w-32 border-r border-slate-300">Remarks</th>
-                    <th className="p-2 border-r border-slate-300">Component Description</th>
-                    <th className="p-2 w-44 border-r border-slate-300">Size</th>
-                    <th className="p-2 w-20 text-center">Qty</th>
+                    <th className="p-1.5 w-[4%] text-center border-r border-slate-300">#</th>
+                    <th className="p-1.5 w-[25%] border-r border-slate-300">Product</th>
+                    <th className="p-1.5 w-[35%] border-r border-slate-300">Component Description & Size</th>
+                    <th className="p-1 w-[10%] text-center border-r border-slate-300">
+                      <div className="leading-tight">Ordered<br />Qty</div>
+                    </th>
+                    <th className="p-1 w-[10%] text-center border-r border-slate-300">
+                      <div className="leading-tight">Sent<br />Qty</div>
+                    </th>
+                    <th className="p-1 w-[10%] text-center border-r border-slate-300">
+                      <div className="leading-tight">Pending<br />Qty</div>
+                    </th>
+                    <th className="p-1 w-[6%] text-center">Remarks</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {framesDispatched.map((it, idx) => (
-                    <tr key={it.id || idx}>
-                      <td className="p-2 text-center text-slate-700 font-mono border-r border-slate-200">
-                        {idx + 1}
-                      </td>
-                      <td className="p-2 font-bold text-slate-800 border-r border-slate-200 text-[11px]">
-                        {it.productCode ? `${it.productCode} — ` : ''}{it.productName || it.orderTitle}
-                      </td>
-                      <td className="p-2 text-slate-700 border-r border-slate-200">{it.remarks || '—'}</td>
-                      <td className="p-2 font-bold text-slate-900 border-r border-slate-200">{it.partName}</td>
-                      <td className="p-2 font-mono text-slate-800 border-r border-slate-200">{it.dimensions}</td>
-                      <td className="p-2 font-mono font-bold text-center text-slate-900">
-                        {it.dispatchingNowQty} pcs
-                      </td>
-                    </tr>
-                  ))}
+                  {framesDispatched.map((it, idx) => {
+                    const isExtra = it.totalOrderQty > 0 && it.dispatchingNowQty > it.totalOrderQty;
+                    const extraDiff = it.dispatchingNowQty - it.totalOrderQty;
+                    const isSplit = !!it.isSplitPart && !!it.splitDetails;
+                    const totalSentThisChallan = isSplit && it.splitDetails ? it.splitDetails.total : it.dispatchingNowQty;
+                    const alreadySent = it.alreadyDispatchedQty || 0;
+                    const pendingQty = Math.max(0, (it.totalOrderQty || 0) - (alreadySent + totalSentThisChallan));
+
+                    return (
+                      <tr key={it.id || idx}>
+                        <td className="p-2 text-center text-slate-700 font-mono border-r border-slate-200">
+                          {idx + 1}
+                        </td>
+                        <td className="p-2 font-bold text-slate-800 border-r border-slate-200 text-[11px]">
+                          <div className="break-words leading-tight">
+                            {it.productCode ? `${it.productCode} — ` : ''}{it.productName || it.orderTitle}
+                          </div>
+                        </td>
+                        <td className="p-2 font-bold text-slate-900 border-r border-slate-200">
+                          <div className="break-words leading-tight">{it.partName}</div>
+                          {it.dimensions && (
+                            <div className="text-[10px] font-mono text-slate-500 font-semibold mt-0.5 break-words leading-tight">
+                              Size: {it.dimensions}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2 font-mono font-bold text-center text-slate-700 border-r border-slate-200 text-[11px]">
+                          {it.totalOrderQty !== undefined ? `${it.totalOrderQty} pcs` : '—'}
+                        </td>
+                        <td className="p-2 font-mono font-bold text-center text-slate-900 border-r border-slate-200 text-[11px]">
+                          <div>{it.dispatchingNowQty} pcs</div>
+                          {isExtra && (
+                            <span className="block text-[9.5px] font-bold text-emerald-700 print:text-black leading-none mt-0.5">
+                              (+{extraDiff} extra)
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2 font-mono font-bold text-center text-slate-700 border-r border-slate-200 text-[11px]">
+                          {it.totalOrderQty !== undefined ? `${pendingQty} pcs` : '—'}
+                        </td>
+                        <td className="p-2 text-slate-700 text-center text-[10.5px] break-words leading-tight">{it.remarks || '—'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

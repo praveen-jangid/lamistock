@@ -232,16 +232,15 @@ export const ComponentChecklist: React.FC<ComponentChecklistProps> = ({
                   )}
                   <th className="p-2.5">Part Name</th>
                   <th className="p-2.5 w-40">Dimensions (L × W × T)</th>
-                  <th className="p-2.5 w-24">Order Total</th>
+                  <th className="p-2.5 w-24">Ordered Qty</th>
                   <th className="p-2.5 w-36">Already Sent</th>
-                  <th className="p-2.5 w-28">Dispatch Now</th>
+                  <th className="p-2.5 w-28">Sent Qty</th>
                   <th className="p-2.5">Remarks / Finish</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {(collapseAlreadySent ? visibleLaminationPending : visibleLaminationAll).map((it) => {
                   const isChecked = selectedItemIds.has(it.id);
-                  const remaining = Math.max(0, it.totalOrderQty - it.alreadyDispatchedQty);
                   const currentDispatchQty = dispatchQtyOverrides[it.id] ?? it.dispatchingNowQty;
 
                   return (
@@ -384,17 +383,23 @@ export const ComponentChecklist: React.FC<ComponentChecklistProps> = ({
                         )}
                       </td>
                       <td className="p-2.5" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="number"
-                          min={1}
-                          max={remaining || 999}
-                          className="w-20 px-2 py-1 bg-white border border-slate-200 rounded font-mono font-bold text-slate-900 focus:outline-none disabled:opacity-40"
-                          value={currentDispatchQty}
-                          onChange={(e) =>
-                            onQtyChange(it.id, parseInt(e.target.value, 10) || 1)
-                          }
-                          disabled={!isChecked}
-                        />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <input
+                            type="number"
+                            min={1}
+                            className="w-20 px-2 py-1 bg-white border border-slate-200 rounded font-mono font-bold text-slate-900 focus:outline-none disabled:opacity-40"
+                            value={currentDispatchQty}
+                            onChange={(e) =>
+                              onQtyChange(it.id, parseInt(e.target.value, 10) || 1)
+                            }
+                            disabled={!isChecked}
+                          />
+                          {isChecked && it.totalOrderQty > 0 && currentDispatchQty > it.totalOrderQty && (
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[10px] whitespace-nowrap">
+                              +{currentDispatchQty - it.totalOrderQty} extra
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-2.5 text-slate-500">{it.remarks || '—'}</td>
                     </tr>
@@ -446,9 +451,9 @@ export const ComponentChecklist: React.FC<ComponentChecklistProps> = ({
                       )}
                       <th className="p-2">Part Name</th>
                       <th className="p-2 w-40">Dimensions</th>
-                      <th className="p-2 w-24">Order Total</th>
+                      <th className="p-2 w-24">Ordered Qty</th>
                       <th className="p-2 w-32">Already Sent</th>
-                      <th className="p-2 w-28">Dispatch Now</th>
+                      <th className="p-2 w-28">Sent Qty</th>
                       <th className="p-2">Status</th>
                     </tr>
                   </thead>
@@ -612,16 +617,15 @@ export const ComponentChecklist: React.FC<ComponentChecklistProps> = ({
                   )}
                   <th className="p-2.5">Part Name</th>
                   <th className="p-2.5 w-40">Size (Inches)</th>
-                  <th className="p-2.5 w-24">Order Total</th>
+                  <th className="p-2.5 w-24">Ordered Qty</th>
                   <th className="p-2.5 w-36">Already Sent</th>
-                  <th className="p-2.5 w-28">Dispatch Now</th>
+                  <th className="p-2.5 w-28">Sent Qty</th>
                   <th className="p-2.5">Remarks</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {(collapseAlreadySent ? visibleFramesPending : visibleFramesAll).map((it) => {
                   const isChecked = selectedItemIds.has(it.id);
-                  const remaining = Math.max(0, it.totalOrderQty - it.alreadyDispatchedQty);
                   const currentDispatchQty = dispatchQtyOverrides[it.id] ?? it.dispatchingNowQty;
 
                   return (
@@ -764,17 +768,23 @@ export const ComponentChecklist: React.FC<ComponentChecklistProps> = ({
                         )}
                       </td>
                       <td className="p-2.5" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="number"
-                          min={1}
-                          max={remaining || 999}
-                          className="w-20 px-2 py-1 bg-white border border-slate-200 rounded font-mono font-bold text-slate-900 focus:outline-none disabled:opacity-40"
-                          value={currentDispatchQty}
-                          onChange={(e) =>
-                            onQtyChange(it.id, parseInt(e.target.value, 10) || 1)
-                          }
-                          disabled={!isChecked}
-                        />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <input
+                            type="number"
+                            min={1}
+                            className="w-20 px-2 py-1 bg-white border border-slate-200 rounded font-mono font-bold text-slate-900 focus:outline-none disabled:opacity-40"
+                            value={currentDispatchQty}
+                            onChange={(e) =>
+                              onQtyChange(it.id, parseInt(e.target.value, 10) || 1)
+                            }
+                            disabled={!isChecked}
+                          />
+                          {isChecked && it.totalOrderQty > 0 && currentDispatchQty > it.totalOrderQty && (
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[10px] whitespace-nowrap">
+                              +{currentDispatchQty - it.totalOrderQty} extra
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-2.5 text-slate-500">{it.remarks || '—'}</td>
                     </tr>
@@ -826,9 +836,9 @@ export const ComponentChecklist: React.FC<ComponentChecklistProps> = ({
                       )}
                       <th className="p-2">Part Name</th>
                       <th className="p-2 w-40">Size (Inches)</th>
-                      <th className="p-2 w-24">Order Total</th>
+                      <th className="p-2 w-24">Ordered Qty</th>
                       <th className="p-2 w-32">Already Sent</th>
-                      <th className="p-2 w-28">Dispatch Now</th>
+                      <th className="p-2 w-28">Sent Qty</th>
                       <th className="p-2">Status</th>
                     </tr>
                   </thead>

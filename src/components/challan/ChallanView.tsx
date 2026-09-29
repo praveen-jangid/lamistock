@@ -13,7 +13,9 @@ import {
   saveChallan,
   deleteChallan,
   getSavedOrders,
-  markComponentAsSent
+  markComponentAsSent,
+  setupChallansRealtimeSync,
+  setupOrdersRealtimeSync
 } from '../../services/challan_db';
 import { getStoredProductsSync } from '../../services/product_db';
 import { getOrderProductDisplayName } from './utils/productHelpers';
@@ -47,10 +49,24 @@ export const ChallanView: React.FC<ChallanViewProps> = ({ initialOrderId }) => {
   const isTrackerRoute = location.pathname.includes('/tracker');
 
   // Master lists
-  const orders = getSavedOrders();
+  const [orders, setOrders] = useState<FactoryOrder[]>(() => getSavedOrders());
   const [challansList, setChallansList] = useState<DeliveryChallan[]>(() => getAllChallans());
   const [selectedChallanToView, setSelectedChallanToView] = useState<DeliveryChallan | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Subscribe to realtime updates for both challans and orders
+  React.useEffect(() => {
+    const unsubChallans = setupChallansRealtimeSync((updated) => {
+      setChallansList(updated);
+    });
+    const unsubOrders = setupOrdersRealtimeSync((updated) => {
+      setOrders(updated);
+    });
+    return () => {
+      unsubChallans();
+      unsubOrders();
+    };
+  }, []);
 
   // MULTI-ORDER SELECTION: Array of selected order IDs included in this dispatch
   // Starts empty by default on /challans/new unless a specific order was requested
@@ -323,7 +339,7 @@ export const ChallanView: React.FC<ChallanViewProps> = ({ initialOrderId }) => {
   };
 
   // Save Challan
-  const handleSaveChallan = () => {
+  const handleSaveChallan = async () => {
     if (dispatchedItems.length === 0) {
       alert('Please select at least 1 panel or frame component to dispatch.');
       return;
@@ -364,18 +380,29 @@ export const ChallanView: React.FC<ChallanViewProps> = ({ initialOrderId }) => {
       updatedAt: new Date().toISOString()
     };
 
-    saveChallan(newChallan);
-    setChallansList(getAllChallans());
-    alert(`Outward Challan #${challanNumber} has been saved successfully!`);
-    navigate('/challans');
+    try {
+      await saveChallan(newChallan);
+      setChallansList(getAllChallans());
+      alert(`Outward Challan #${challanNumber} has been saved and saved to database successfully!`);
+      navigate('/challans');
+    } catch (err: any) {
+      console.error('Error saving challan:', err);
+      alert(`Challan saved locally, but database sync encountered an issue: ${err?.message || String(err)}`);
+      navigate('/challans');
+    }
   };
 
-  const handleDeleteChallan = (challanId: string, challanNum: string) => {
+  const handleDeleteChallan = async (challanId: string, challanNum: string) => {
     if (window.confirm(`Are you sure you want to delete Outward Challan #${challanNum}?`)) {
-      deleteChallan(challanId);
-      setChallansList(getAllChallans());
-      if (selectedChallanToView?.id === challanId) {
-        setSelectedChallanToView(null);
+      try {
+        await deleteChallan(challanId);
+        setChallansList(getAllChallans());
+        if (selectedChallanToView?.id === challanId) {
+          setSelectedChallanToView(null);
+        }
+      } catch (err: any) {
+        console.error('Error deleting challan:', err);
+        alert(`Failed to delete challan from database: ${err?.message || String(err)}`);
       }
     }
   };

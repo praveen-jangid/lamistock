@@ -24,6 +24,10 @@ dist-ssr
 local.properties
 .gradle/
 build/
+src-tauri/target/
+*.key
+updater_key.key
+
 
 # Editor directories and files
 .vscode/*

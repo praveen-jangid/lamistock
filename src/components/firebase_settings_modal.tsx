@@ -5,6 +5,9 @@ import {
   isFirebaseReady,
   testFirestoreConnection,
   FIRESTORE_PANELS_COLLECTION,
+  FIRESTORE_PRODUCTS_COLLECTION,
+  FIRESTORE_CHALLANS_COLLECTION,
+  FIRESTORE_ORDERS_COLLECTION,
   type FirebaseConfig
 } from '../services/firebase';
 import {
@@ -55,6 +58,18 @@ const FirebaseSettingsModalContent: React.FC<Omit<FirebaseSettingsModalProps, 'i
 service cloud.firestore {
   match /databases/{database}/documents {
     match /${FIRESTORE_PANELS_COLLECTION}/{panelId} {
+      allow read, write: if true;
+    }
+    match /${FIRESTORE_PRODUCTS_COLLECTION}/{productId} {
+      allow read, write: if true;
+    }
+    match /${FIRESTORE_CHALLANS_COLLECTION}/{challanId} {
+      allow read, write: if true;
+    }
+    match /${FIRESTORE_ORDERS_COLLECTION}/{orderId} {
+      allow read, write: if true;
+    }
+    match /{document=**} {
       allow read, write: if true;
     }
   }

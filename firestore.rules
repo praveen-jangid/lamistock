@@ -9,6 +9,18 @@ service cloud.firestore {
     match /products/{productId} {
       allow read, write: if true;
     }
+    // Rules for Outward Challans collection
+    match /outward_challans/{challanId} {
+      allow read, write: if true;
+    }
+    // Rules for Factory Orders collection
+    match /factory_orders/{orderId} {
+      allow read, write: if true;
+    }
+    // Rules for Challan Settings collection
+    match /challan_settings/{settingId} {
+      allow read, write: if true;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

@@ -19,7 +19,11 @@ import {
   parseWoodPlanSpreadsheet,
   type ExtractedWoodPlanResult
 } from './utils/wood_plan_parser';
-import { getAllChallans } from './services/challan_db';
+import {
+  getAllChallans,
+  initializeChallansDatabase,
+  setupChallansRealtimeSync
+} from './services/challan_db';
 import { Topbar } from './components/topbar';
 import { Sidebar } from './components/sidebar';
 import { RightSidebar } from './components/right_sidebar';
@@ -40,10 +44,18 @@ import { FirebaseSettingsModal } from './components/firebase_settings_modal';
 import { AddEditProductModal } from './components/add_edit_product_modal';
 import { WoodPlanPreviewModal } from './components/wood_plan_preview_modal';
 import { WoodPlanViewModal } from './components/wood_plan_view_modal';
+import { UpdateModal } from './components/update_modal';
+import type { Update } from '@tauri-apps/plugin-updater';
+import { checkForAppUpdates, getCurrentAppVersion } from './services/updater';
 import { Cloud } from 'lucide-react';
 import { isFirebaseReady } from './services/firebase';
 
 export const App: React.FC = () => {
+  // Desktop Auto-Update State
+  const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
+  const [appVersion, setAppVersion] = useState<string>('0.0.1');
+
   // Stock Inventory State
   const [panels, setPanels] = useState<LaminatedPanel[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -51,6 +63,9 @@ export const App: React.FC = () => {
   // Products & Wood Plans State
   const [products, setProducts] = useState<Product[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState<boolean>(true);
+
+  // Outward Challans State
+  const [challansCount, setChallansCount] = useState<number>(() => getAllChallans().length);
 
   // Layout state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -86,17 +101,19 @@ export const App: React.FC = () => {
   // Hidden file input for Wood Plan Excel uploads
   const woodPlanFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Reload panels and products when database/firebase settings change
+  // Reload panels, products, and challans when database/firebase settings change
   const handleConfigChanged = async () => {
     setIsLoading(true);
     setIsProductsLoading(true);
     try {
-      const [loadedPanels, loadedProducts] = await Promise.all([
+      const [loadedPanels, loadedProducts, loadedChallans] = await Promise.all([
         initializeDatabase(),
-        initializeProductsDatabase()
+        initializeProductsDatabase(),
+        initializeChallansDatabase()
       ]);
       setPanels(loadedPanels);
       setProducts(loadedProducts);
+      setChallansCount(loadedChallans.challans.length);
     } catch (err) {
       console.error('Error reloading databases:', err);
     } finally {
@@ -107,6 +124,24 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
+
+    // 0. Auto-check for desktop app updates on startup
+    getCurrentAppVersion().then((v) => {
+      if (isMounted) setAppVersion(v);
+    });
+    checkForAppUpdates()
+      .then((res) => {
+        if (isMounted) {
+          if (res.currentVersion) setAppVersion(res.currentVersion);
+          if (res.hasUpdate && res.update) {
+            setAvailableUpdate(res.update);
+            setIsUpdateModalOpen(true);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('[Updater] Startup update check warning:', err);
+      });
 
     // 1. Initialize Stock Panels
     initializeDatabase()
@@ -134,7 +169,18 @@ export const App: React.FC = () => {
         if (isMounted) setIsProductsLoading(false);
       });
 
-    // 3. Realtime subscriptions
+    // 3. Initialize Outward Challans & Orders Database
+    initializeChallansDatabase()
+      .then(({ challans }) => {
+        if (isMounted) {
+          setChallansCount(challans.length);
+        }
+      })
+      .catch((err) => {
+        console.error('Error initializing challans database:', err);
+      });
+
+    // 4. Realtime subscriptions
     const unsubscribePanels = setupRealtimeSync((updatedPanels) => {
       if (isMounted) setPanels(updatedPanels);
     });
@@ -143,10 +189,15 @@ export const App: React.FC = () => {
       if (isMounted) setProducts(updatedProducts);
     });
 
+    const unsubscribeChallans = setupChallansRealtimeSync((updatedChallans) => {
+      if (isMounted) setChallansCount(updatedChallans.length);
+    });
+
     return () => {
       isMounted = false;
       unsubscribePanels();
       unsubscribeProducts();
+      unsubscribeChallans();
     };
   }, []);
 
@@ -339,7 +390,6 @@ export const App: React.FC = () => {
   };
 
   const totalSheetsCount = panels.reduce((sum, p) => sum + (p.quantity || 0), 0);
-  const challansCount = getAllChallans().length;
 
   // Derive page title from current route path
   const getTabTitle = () => {
@@ -379,6 +429,9 @@ export const App: React.FC = () => {
             });
           }}
           onOpenFirebaseSettings={() => setIsFirebaseOpen(true)}
+          hasUpdate={Boolean(availableUpdate)}
+          onOpenUpdateModal={() => setIsUpdateModalOpen(true)}
+          appVersion={appVersion}
         />
       </div>
 
@@ -609,6 +662,14 @@ export const App: React.FC = () => {
         onClose={() => setIsWoodPlanViewOpen(false)}
         onUpdateWoodPlan={handleUpdateWoodPlanDirectly}
         onTriggerExcelUpload={handleTriggerWoodPlanUpload}
+      />
+
+      {/* Desktop Auto-Update Modal */}
+      <UpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        update={availableUpdate}
+        currentVersion={appVersion}
       />
     </div>
   );

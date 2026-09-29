@@ -78,4 +78,5 @@ export interface FactoryOrder {
   }[];
   notes?: string;
   status: 'PENDING' | 'IN_PROGRESS' | 'PARTIALLY_DISPATCHED' | 'COMPLETED' | 'CLOSED';
+  urgency?: 'URGENT' | 'NORMAL' | 'LOW';
 }

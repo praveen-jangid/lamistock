@@ -39,14 +39,14 @@ export interface ChallanViewProps {
   onOpenBulkMatcher?: () => void;
 }
 
-export const ChallanView: React.FC<ChallanViewProps> = ({ initialOrderId }) => {
+export const ChallanView: React.FC<ChallanViewProps> = ({ initialOrderId, defaultSubTab }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
 
   const queryOrderId = searchParams.get('orderId');
-  const isCreateRoute = location.pathname.includes('/new');
-  const isTrackerRoute = location.pathname.includes('/tracker');
+  const isCreateRoute = location.pathname.includes('/new') || defaultSubTab === 'create';
+  const isTrackerRoute = location.pathname.includes('/tracker') || defaultSubTab === 'tracker';
 
   // Master lists
   const [orders, setOrders] = useState<FactoryOrder[]>(() => getSavedOrders());
@@ -415,7 +415,13 @@ export const ChallanView: React.FC<ChallanViewProps> = ({ initialOrderId }) => {
   // ROUTE: /tracker (Unit 1 Fulfillment Progress)
   // =========================================================================
   if (isTrackerRoute) {
-    return <FulfillmentTrackerView orders={orders} />;
+    return (
+      <FulfillmentTrackerView
+        orders={orders}
+        challans={challansList}
+        onSelectChallan={(ch) => setSelectedChallanToView(ch)}
+      />
+    );
   }
 
   // =========================================================================

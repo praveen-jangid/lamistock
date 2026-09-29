@@ -59,6 +59,7 @@ export const INITIAL_ORDERS: FactoryOrder[] = [
     date: '18-Aug-2026',
     notes: 'Order for Unit 1 assembly. Laminated panels processed in Unit 2.',
     status: 'PENDING',
+    urgency: 'URGENT',
     laminationItems: [
       {
         id: 'bun-lam-1',
@@ -204,10 +205,49 @@ export const INITIAL_ORDERS: FactoryOrder[] = [
     quantity: 50,
     title: 'BS-BUN-03 Bunton 2 Drawer Bedside Table',
     date: '07-Jun-2026',
-    notes: 'Dispatched to Unit 1.',
-    status: 'CLOSED',
-    laminationItems: [],
-    frameItems: []
+    notes: 'Bedside table order for Unit 1 assembly.',
+    status: 'IN_PROGRESS',
+    urgency: 'NORMAL',
+    laminationItems: [
+      {
+        id: 'bed-lam-1',
+        partName: 'Top Panel',
+        length: 20,
+        width: 16,
+        thickness: 0.75,
+        quantityNeeded: 50,
+        woodType: 'Mango Wood',
+        remarks: 'Beveled edge'
+      },
+      {
+        id: 'bed-lam-2',
+        partName: 'Drawer Faces',
+        length: 18,
+        width: 7,
+        thickness: 0.675,
+        quantityNeeded: 100,
+        woodType: 'Mango Wood',
+        remarks: 'Fluting pattern'
+      },
+      {
+        id: 'bed-lam-3',
+        partName: 'Side Panels',
+        length: 22,
+        width: 15.5,
+        thickness: 0.675,
+        quantityNeeded: 100,
+        woodType: 'Mango Wood'
+      }
+    ],
+    frameItems: [
+      {
+        id: 'bed-frm-1',
+        partName: 'Leg Posts',
+        size: '23″ × 1.75″ × 1.75″',
+        quantity: 200,
+        woodType: 'Solid Mango Wood'
+      }
+    ]
   }
 ];
 
@@ -587,10 +627,15 @@ export function getDispatchedQuantitiesForOrder(orderId: string): Map<string, nu
 
   // 1. Quantities from saved challans
   challans
-    .filter((c) => c.status === 'DISPATCHED')
+    .filter((c) => c.status === 'DISPATCHED' || c.status === 'RECEIVED_AT_UNIT_1')
     .forEach((c) => {
       c.items.forEach((it) => {
-        if (it.orderId === orderId || (!it.orderId && c.orderId === orderId)) {
+        const matchesOrder =
+          it.orderId === orderId ||
+          (!it.orderId && c.orderId === orderId) ||
+          (c.orderIds && c.orderIds.includes(orderId));
+
+        if (matchesOrder) {
           const compKey = it.baseItemId || it.id;
           const curr = dispatchedMap.get(compKey) || 0;
           dispatchedMap.set(compKey, curr + (it.dispatchingNowQty || 0));
@@ -606,6 +651,144 @@ export function getDispatchedQuantitiesForOrder(orderId: string): Map<string, nu
   });
 
   return dispatchedMap;
+}
+
+export interface ComponentDeliveryDetail {
+  challanId: string;
+  challanNumber: string;
+  date: string;
+  time?: string;
+  quantity: number;
+  driverName?: string;
+  vehicleNumber?: string;
+  palletNumber?: number;
+  status: string;
+}
+
+export interface DetailedComponentDispatches {
+  challans: ComponentDeliveryDetail[];
+  challanSentTotal: number;
+  manualSentTotal: number;
+  totalTransported: number;
+}
+
+/**
+ * Returns a map of component ID to detailed dispatch breakdown (which challans carried it, manual entries, etc.)
+ */
+export function getDetailedDispatchesForOrder(orderId: string): Map<string, DetailedComponentDispatches> {
+  const challans = getAllChallans();
+  const resultMap = new Map<string, DetailedComponentDispatches>();
+
+  const getOrCreate = (key: string): DetailedComponentDispatches => {
+    let entry = resultMap.get(key);
+    if (!entry) {
+      entry = {
+        challans: [],
+        challanSentTotal: 0,
+        manualSentTotal: 0,
+        totalTransported: 0
+      };
+      resultMap.set(key, entry);
+    }
+    return entry;
+  };
+
+  // 1. Group from saved challans
+  challans
+    .filter((c) => c.status === 'DISPATCHED' || c.status === 'RECEIVED_AT_UNIT_1')
+    .forEach((c) => {
+      c.items.forEach((it) => {
+        const matchesOrder =
+          it.orderId === orderId ||
+          (!it.orderId && c.orderId === orderId) ||
+          (c.orderIds && c.orderIds.includes(orderId));
+
+        if (matchesOrder) {
+          const compKey = it.baseItemId || it.id;
+          const entry = getOrCreate(compKey);
+          const qty = it.dispatchingNowQty || 0;
+          if (qty > 0) {
+            entry.challans.push({
+              challanId: c.id,
+              challanNumber: c.challanNumber,
+              date: c.date,
+              time: c.time,
+              quantity: qty,
+              driverName: c.driverName,
+              vehicleNumber: c.vehicleNumber,
+              palletNumber: it.palletNumber,
+              status: c.status
+            });
+            entry.challanSentTotal += qty;
+          }
+        }
+      });
+    });
+
+  // 2. Add manual adjustments marked directly without a challan
+  const manualSent = getManualSentAdjustments();
+  Object.entries(manualSent).forEach(([compId, qty]) => {
+    if (qty > 0) {
+      const entry = getOrCreate(compId);
+      entry.manualSentTotal += qty;
+    }
+  });
+
+  // Compute grand total for each component
+  resultMap.forEach((entry) => {
+    entry.totalTransported = entry.challanSentTotal + entry.manualSentTotal;
+  });
+
+  return resultMap;
+}
+
+export async function toggleOrderUrgency(orderId: string): Promise<'URGENT' | 'NORMAL'> {
+  const orders = getSavedOrders();
+  const order = orders.find((o) => o.id === orderId);
+  let nextUrgency: 'URGENT' | 'NORMAL' = 'URGENT';
+  if (order) {
+    nextUrgency = order.urgency === 'URGENT' ? 'NORMAL' : 'URGENT';
+    order.urgency = nextUrgency;
+    saveOrders(orders);
+    notifyOrderListeners(orders);
+    if (isFirebaseReady()) {
+      syncOrderToFirestore(order).catch(console.warn);
+    }
+  }
+  return nextUrgency;
+}
+
+export function markAllOrderComponentsCompleted(order: FactoryOrder): void {
+  const currentManual = getManualSentAdjustments();
+  const dispatchedMap = getDispatchedQuantitiesForOrder(order.id);
+
+  order.laminationItems.forEach((lam) => {
+    const already = dispatchedMap.get(lam.id) || 0;
+    const diff = Math.max(0, lam.quantityNeeded - already);
+    if (diff > 0) {
+      currentManual[lam.id] = (currentManual[lam.id] || 0) + diff;
+    }
+  });
+
+  order.frameItems.forEach((frm) => {
+    const already = dispatchedMap.get(frm.id) || 0;
+    const diff = Math.max(0, frm.quantity - already);
+    if (diff > 0) {
+      currentManual[frm.id] = (currentManual[frm.id] || 0) + diff;
+    }
+  });
+
+  try {
+    localStorage.setItem(MANUAL_SENT_STORAGE_KEY, JSON.stringify(currentManual));
+  } catch (e) {
+    console.error('Error saving manual adjustments:', e);
+  }
+
+  if (isFirebaseReady()) {
+    syncManualAdjustmentsToFirestore(currentManual).catch(console.warn);
+  }
+
+  notifyOrderListeners(getSavedOrders());
 }
 
 /**
